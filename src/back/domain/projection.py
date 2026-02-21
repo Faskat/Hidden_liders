@@ -86,7 +86,11 @@ def project_state_for_player(state: GameState, player_id: str) -> dict[str, Any]
         "tavern": tavern_view,
         "harbor_count": len(state.harbor),
         "wilderness_count": len(state.wilderness),
-        "graveyard_top": state.cards.get(state.graveyard[-1], {}) if state.graveyard else None,
+        "graveyard_top": (
+            {"card_id": state.graveyard[-1], **state.cards.get(state.graveyard[-1], {})}
+            if state.graveyard
+            else None
+        ),
         "game_ended": state.game_ended,
         "winner_faction": state.winner_faction,
         "winner_player_id": state.winner_player_id,
