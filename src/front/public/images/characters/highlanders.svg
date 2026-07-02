@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 200" fill="none">
+  <defs>
+    <linearGradient id="h" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#1a2a1a"/>
+      <stop offset="100%" stop-color="#0d180d"/>
+    </linearGradient>
+  </defs>
+  <ellipse cx="60" cy="187" rx="33" ry="11" fill="url(#h)" opacity="0.9"/>
+  <path d="M37 187 Q33 128 47 76 L57 44 L63 44 L73 76 Q87 128 83 187 Z" fill="url(#h)"/>
+  <circle cx="60" cy="40" r="20" fill="url(#h)"/>
+  <!-- Mountain peaks -->
+  <path d="M20 120 L60 60 L100 120 L80 100 L60 115 L40 100 Z" fill="url(#h)" opacity="0.7"/>
+  <path d="M50 140 L60 120 L70 140 Z" fill="#3d8f3d" opacity="0.3"/>
+</svg>

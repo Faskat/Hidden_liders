@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 200" fill="none">
+  <defs>
+    <linearGradient id="u" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#2a1a1a"/>
+      <stop offset="100%" stop-color="#1a0a0a"/>
+    </linearGradient>
+  </defs>
+  <!-- Silhouette: figure with crown/skull -->
+  <ellipse cx="60" cy="185" rx="35" ry="12" fill="url(#u)" opacity="0.9"/>
+  <path d="M35 185 Q30 120 45 75 L55 45 L65 45 L75 75 Q90 120 85 185 Z" fill="url(#u)"/>
+  <circle cx="60" cy="38" r="22" fill="url(#u)"/>
+  <path d="M50 25 L60 12 L70 25 L65 22 L60 28 L55 22 Z" fill="#c9a227" opacity="0.5"/>
+</svg>

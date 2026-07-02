@@ -9,15 +9,15 @@ if str(_back) not in sys.path:
 import pytest
 from domain.state import GameState, PlayerInState, HeroRef, TurnPhase
 from domain.commands import PlayCardCommand, DiscardCardsCommand, DrawFromTavernCommand, DrawFromHarborCommand, RefillTavernCommand
+from domain.exceptions import CommandRejected
 from command_handlers import (
     handle_play_card,
     handle_discard_cards,
     handle_draw_from_tavern,
     handle_draw_from_harbor,
     handle_refill_tavern,
-    CommandRejected,
 )
-from tests.conftest import two_player_state, make_catalog
+from tests.conftest import two_player_state, make_catalog, make_catalog_with_markers
 
 
 class TestPlayCard:
@@ -51,6 +51,67 @@ class TestPlayCard:
         assert "CardPlayed" in types
         assert "MarkerMoved" in types
         assert "TurnPhaseChanged" in types
+
+    def test_old_format_card_with_zero_deltas_no_marker_moved(self):
+        state = two_player_state()
+        state.players[0].hand_card_ids = ["hero_u"]
+        cmd = PlayCardCommand(room_id="r1", player_id="p1", card_id="hero_u")
+        events = handle_play_card(state, cmd)
+        types = [e[0] for e in events]
+        assert "CardPlayed" in types
+        assert "MarkerMoved" not in types
+        assert "TurnPhaseChanged" in types
+
+    def test_new_format_card_markers_and_resolves_deltas(self):
+        catalog = make_catalog_with_markers()
+        state = two_player_state(catalog=catalog)
+        state.players[0].hand_card_ids = ["hero_0"]
+        cmd = PlayCardCommand(room_id="r1", player_id="p1", card_id="hero_0")
+        events = handle_play_card(state, cmd)
+        types = [e[0] for e in events]
+        assert "CardPlayed" in types
+        assert "MarkerMoved" in types
+        payload = next(e[1] for e in events if e[0] == "MarkerMoved")
+        assert payload["red_delta"] == 1
+        assert payload["green_delta"] == 0
+
+    def test_calculation_target_face_up_blue_two_players_auto_target(self):
+        """Double Shielded Turtle: with 2 players, no targets sent; backend auto-fills target_player_id and X=1 from opponent's one blue (Waterfolk) face-up card."""
+        catalog = make_catalog_with_markers()
+        state = two_player_state(catalog=catalog)
+        state.players[0].hand_card_ids = ["hero_6"]
+        state.players[1].open_heroes = [HeroRef(card_id="hero_3")]  # hero_3 is Waterfolk
+        cmd = PlayCardCommand(room_id="r1", player_id="p1", card_id="hero_6", targets=None)
+        events = handle_play_card(state, cmd)
+        types = [e[0] for e in events]
+        assert "MarkerMoved" in types
+        payload = next(e[1] for e in events if e[0] == "MarkerMoved")
+        assert payload["red_delta"] == -1
+        assert payload["green_delta"] == -1
+
+    def test_cave_keeper_no_markers_when_red_in_tavern(self):
+        """Cave Keeper: condition no_red_in_tavern; when tavern has a red (Imperials) card, markers must not be applied."""
+        catalog = make_catalog_with_markers()
+        state = two_player_state(catalog=catalog)
+        state.players[0].hand_card_ids = ["hero_7"]
+        state.tavern = ["hero_0", None, None]  # hero_0 is Imperials (red)
+        cmd = PlayCardCommand(room_id="r1", player_id="p1", card_id="hero_7", targets=None)
+        events = handle_play_card(state, cmd)
+        types = [e[0] for e in events]
+        assert "CardPlayed" in types
+        assert "MarkerMoved" not in types
+
+    def test_cave_keeper_markers_when_no_red_in_tavern(self):
+        """Cave Keeper: when tavern has no red cards, +2 G is applied."""
+        catalog = make_catalog_with_markers()
+        state = two_player_state(catalog=catalog)
+        state.players[0].hand_card_ids = ["hero_7"]
+        state.tavern = ["hero_1", "hero_3", None]  # green and waterfolk, no red
+        cmd = PlayCardCommand(room_id="r1", player_id="p1", card_id="hero_7", targets=None)
+        events = handle_play_card(state, cmd)
+        payload = next((e[1] for e in events if e[0] == "MarkerMoved"), None)
+        assert payload is not None
+        assert payload["green_delta"] == 2
 
 
 class TestDiscardCards:

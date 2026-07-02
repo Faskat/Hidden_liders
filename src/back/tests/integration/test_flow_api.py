@@ -56,7 +56,8 @@ def test_create_room(client):
     if not _ready(client):
         pytest.skip("backend not ready (cards not loaded)")
     room_id = _create_room(client)
-    assert room_id and len(room_id) == 36
+    # Backend uses 4-digit room code, not UUID
+    assert room_id and len(room_id) == 4 and room_id.isdigit()
 
 
 def test_join_and_start_and_one_turn(client):
@@ -81,11 +82,15 @@ def test_join_and_start_and_one_turn(client):
     assert state["current_phase"] == "PLAY"
     assert state["harbor_count"] > 0
 
+    # Get state with current player's token so we see their hand_card_ids (projection hides other players' hands)
     r = client.get(f"{API}/rooms/{room_id}/state", headers={"X-Player-Token": token1})
     assert r.status_code == 200
     state = r.json()
     current_id = state["current_player_id"]
     token = token1 if current_id == player_id1 else token2
+    r = client.get(f"{API}/rooms/{room_id}/state", headers={"X-Player-Token": token})
+    assert r.status_code == 200
+    state = r.json()
     me = next(p for p in state["players"] if p["player_id"] == current_id)
     hand = me["hand_card_ids"]
     assert len(hand) == 3

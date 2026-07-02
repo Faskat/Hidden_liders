@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hidden Liders — Головна</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Bad+Script&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --coral: #ff6b6b;
+      --mint: #00d9a5;
+      --lavender: #a855f7;
+      --peach: #ffb347;
+      --sage: #2ecc71;
+      --sky: #00b4d8;
+      --rose: #f72585;
+      --gold: #ffd60a;
+      --teal: #06ffa5;
+      --lilac: #c77dff;
+      --salmon: #ff8a80;
+      --accent: #a855f7;
+      --bg-base: #1a1b2e;
+      --bg-dark: #16213e;
+      --surface: rgba(255, 255, 255, 0.07);
+      --surface-hover: rgba(255, 255, 255, 0.12);
+      --text: #f0f0f5;
+      --text-muted: rgba(240, 240, 245, 0.78);
+      --radius: 20px;
+      --radius-sm: 12px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Manrope', sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+      background: #9a7b4f;
+      color: #2c1810;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+
+    /* Фон паперу / папірус (як було) */
+    .paper-bg {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      overflow: hidden;
+      background: linear-gradient(145deg, #e8dfc8 0%, #d9c9a8 25%, #c9b896 50%, #b5a078 75%, #a08b68 100%);
+      box-shadow: inset 0 0 120px rgba(139, 90, 43, 0.08);
+    }
+
+    .paper-bg::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.06'/%3E%3C/svg%3E");
+      pointer-events: none;
+    }
+
+    /* Плями та пом'яті на папірі */
+    .paper-bg::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background:
+        radial-gradient(ellipse 15% 12% at 12% 18%, rgba(139, 90, 43, 0.12) 0%, transparent 55%),
+        radial-gradient(ellipse 20% 15% at 88% 75%, rgba(100, 70, 35, 0.1) 0%, transparent 55%),
+        radial-gradient(ellipse 25% 18% at 75% 25%, rgba(120, 80, 40, 0.08) 0%, transparent 60%),
+        radial-gradient(ellipse 12% 20% at 25% 82%, rgba(90, 60, 30, 0.11) 0%, transparent 50%),
+        radial-gradient(ellipse 18% 10% at 50% 45%, rgba(110, 75, 38, 0.06) 0%, transparent 50%),
+        radial-gradient(ellipse 8% 15% at 92% 15%, rgba(95, 65, 32, 0.09) 0%, transparent 55%),
+        radial-gradient(ellipse 14% 22% at 8% 55%, rgba(85, 58, 28, 0.07) 0%, transparent 55%);
+    }
+
+    /* Текст договору на весь фон */
+    .script-bg {
+      position: fixed;
+      inset: 0;
+      z-index: 1;
+      pointer-events: none;
+      display: flex;
+      align-items: stretch;
+      justify-content: center;
+      padding: 0 3%;
+    }
+
+    .script-text {
+      font-family: 'Bad Script', cursive;
+      font-size: clamp(1.1rem, 2.6vw, 1.4rem);
+      line-height: 1.8;
+      color: #1a0f08;
+      opacity: 0.72;
+      width: 100%;
+      max-width: 100%;
+      padding: 2rem 4% 3rem;
+      position: relative;
+      column-count: 3;
+      column-gap: 3rem;
+      column-fill: balance;
+      min-height: 100%;
+      box-sizing: border-box;
+    }
+
+    @media (max-width: 900px) {
+      .script-text { column-count: 2; column-gap: 2rem; }
+    }
+
+    @media (max-width: 500px) {
+      .script-text { column-count: 1; }
+    }
+
+    /* Кожна строчка починає писатися після попередньої; в кінці циклу всі разом «висихають» */
+    .script-text .script-line {
+      display: block;
+      overflow: hidden;
+      white-space: nowrap;
+      clip-path: inset(0 100% 0 0);
+      animation: scriptRevealOnly 72s ease-out infinite;
+      transform-origin: left center;
+      break-inside: avoid;
+    }
+
+    .script-text .script-line:nth-child(1) { animation-delay: 0.5s; transform: rotate(-0.35deg) translateX(2px); }
+    .script-text .script-line:nth-child(2) { animation-delay: 3.5s; transform: rotate(0.25deg) translateX(-1px); }
+    .script-text .script-line:nth-child(3) { animation-delay: 6.5s; transform: rotate(-0.2deg) translateX(3px); }
+    .script-text .script-line:nth-child(4) { animation-delay: 9.5s; transform: rotate(0.4deg) translateX(-2px); }
+    .script-text .script-line:nth-child(5) { animation-delay: 12.5s; transform: rotate(-0.15deg) translateX(1px); }
+    .script-text .script-line:nth-child(6) { animation-delay: 15.5s; transform: rotate(0.3deg) translateX(-1px); }
+    .script-text .script-line:nth-child(7) { animation-delay: 18.5s; transform: rotate(-0.25deg) translateX(2px); }
+    .script-text .script-line:nth-child(8) { animation-delay: 21.5s; transform: rotate(0.2deg) translateX(-1px); }
+    .script-text .script-line:nth-child(9) { animation-delay: 24.5s; transform: rotate(-0.3deg) translateX(1px); }
+    .script-text .script-line:nth-child(10) { animation-delay: 27.5s; transform: rotate(0.35deg) translateX(-2px); }
+    .script-text .script-line:nth-child(11) { animation-delay: 30.5s; transform: rotate(-0.2deg) translateX(2px); }
+    .script-text .script-line:nth-child(12) { animation-delay: 33.5s; transform: rotate(0.28deg) translateX(-1px); }
+    .script-text .script-line:nth-child(13) { animation-delay: 36.5s; transform: rotate(-0.22deg) translateX(1px); }
+    .script-text .script-line:nth-child(14) { animation-delay: 39.5s; transform: rotate(0.3deg) translateX(-2px); }
+    .script-text .script-line:nth-child(15) { animation-delay: 42.5s; transform: rotate(-0.28deg) translateX(2px); }
+    .script-text .script-line:nth-child(16) { animation-delay: 45.5s; transform: rotate(0.2deg) translateX(-1px); }
+    .script-text .script-line:nth-child(17) { animation-delay: 48.5s; transform: rotate(-0.35deg) translateX(1px); }
+    .script-text .script-line:nth-child(18) { animation-delay: 51.5s; transform: rotate(0.25deg) translateX(-1px); }
+    .script-text .script-line:nth-child(19) { animation-delay: 54.5s; transform: rotate(-0.2deg) translateX(2px); }
+    .script-text .script-line:nth-child(20) { animation-delay: 57.5s; transform: rotate(0.32deg) translateX(-1px); }
+
+    /* Поява тексту, потім «висихання» разом і повтор циклу */
+    @keyframes scriptRevealOnly {
+      0% { clip-path: inset(0 100% 0 0); opacity: 0.72; }
+      4% { clip-path: inset(0 0 0 0); opacity: 0.72; }
+      88% { clip-path: inset(0 0 0 0); opacity: 0.72; }
+      94% { clip-path: inset(0 0 0 0); opacity: 0; }
+      100% { clip-path: inset(0 100% 0 0); opacity: 0; }
+    }
+
+    /* Печатка з червоного воску — неідеальна форма з підтіком */
+    .wax-seal {
+      position: fixed;
+      right: 20px;
+      bottom: 20px;
+      z-index: 10;
+      width: 76px;
+      height: 76px;
+      border-radius: 48% 52% 52% 48% / 52% 48% 52% 48%;
+      background: radial-gradient(ellipse 55% 45% at 38% 32%, #d44a3a, #a82818 40%, #7a1c10 100%);
+      box-shadow: inset -3px -4px 10px rgba(0,0,0,0.4), inset 2px 2px 8px rgba(255,200,180,0.25), 3px 5px 14px rgba(0,0,0,0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transform: rotate(-8deg);
+    }
+
+    .wax-seal::after {
+      content: '';
+      position: absolute;
+      left: 52%;
+      top: 100%;
+      width: 14px;
+      height: 22px;
+      margin-left: -7px;
+      margin-top: -4px;
+      background: linear-gradient(180deg, #9a2818 0%, #7a1c10 50%, #5c1508 100%);
+      border-radius: 50% 50% 45% 55% / 55% 45% 55% 45%;
+      box-shadow: inset 0 1px 3px rgba(0,0,0,0.4), 1px 3px 6px rgba(0,0,0,0.3);
+      transform: rotate(10deg);
+    }
+
+    .wax-seal svg {
+      width: 40px;
+      height: 40px;
+      opacity: 0.92;
+      filter: drop-shadow(0 1px 2px rgba(0,0,0,0.35));
+      position: relative;
+      z-index: 1;
+    }
+
+    .wax-seal svg path {
+      fill: #1a0f0a;
+    }
+
+    .page-header {
+      position: relative;
+      z-index: 2;
+      text-align: center;
+      margin-bottom: 0.75rem;
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      color: #3d2817;
+    }
+
+    .page-footer {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      z-index: 2;
+      text-align: center;
+      padding: 0.6rem 1rem;
+      font-size: 0.8rem;
+      color: #5c4033;
+      font-weight: 500;
+    }
+
+    /* Main container — на папері, поверх тексту договору */
+    .main-container {
+      position: relative;
+      z-index: 2;
+      background: rgba(232, 223, 200, 0.88);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(139, 90, 43, 0.25);
+      border-radius: var(--radius);
+      padding: 2.5rem 2.5rem 2rem;
+      max-width: 420px;
+      width: 90%;
+      box-shadow: 0 8px 32px rgba(44, 24, 16, 0.15), inset 0 1px 0 rgba(255,255,255,0.4);
+    }
+
+    /* Avatar row */
+    .avatar-row {
+      display: flex;
+      align-items: flex-end;
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+
+    .avatar-block {
+      position: relative;
+      flex-shrink: 0;
+    }
+
+    .avatar-wrap {
+      width: 88px;
+      height: 88px;
+      border-radius: 50%;
+      overflow: hidden;
+      background: linear-gradient(135deg, #6b4423 0%, #8b5a2b 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2.5rem;
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .avatar-wrap:hover {
+      transform: scale(1.03);
+      box-shadow: 0 8px 24px rgba(107, 68, 35, 0.4);
+    }
+
+    .avatar-wrap .avatar-emoji {
+      transition: opacity 0.25s ease;
+    }
+
+    .avatar-refresh {
+      position: absolute;
+      right: -8px;
+      bottom: -8px;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: #6b4423;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.25s ease, background 0.25s ease;
+      box-shadow: 0 2px 10px rgba(44, 24, 16, 0.4);
+    }
+
+    .avatar-refresh:hover {
+      transform: rotate(180deg) scale(1.1);
+      background: #8b5a2b;
+    }
+
+    .avatar-refresh svg {
+      width: 16px;
+      height: 16px;
+      fill: white;
+    }
+
+    .username-wrap {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .username-input {
+      width: 100%;
+      padding: 0.85rem 1rem;
+      border-radius: var(--radius-sm);
+      border: 1px solid rgba(139, 90, 43, 0.35);
+      background: rgba(255, 252, 245, 0.7);
+      color: #2c1810;
+      font-family: inherit;
+      font-size: 1rem;
+      transition: border-color 0.25s ease, box-shadow 0.25s ease;
+    }
+
+    .username-input::placeholder {
+      color: #6b5344;
+    }
+
+    .username-input:focus {
+      outline: none;
+      border-color: #6b4423;
+      box-shadow: 0 0 0 3px rgba(107, 68, 35, 0.2);
+    }
+
+    .username-input:focus::placeholder {
+      color: #6b5344;
+    }
+
+    .username-input.placeholder-hidden::placeholder {
+      opacity: 0;
+    }
+
+    /* Buttons */
+    .buttons {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .btn {
+      padding: 0.9rem 1.25rem;
+      border-radius: var(--radius-sm);
+      border: none;
+      font-family: inherit;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+      text-align: center;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #6b4423 0%, #8b5a2b 100%);
+      color: #f5f0e8;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(107, 68, 35, 0.4);
+    }
+
+    .buttons .btn:nth-child(2):hover {
+      border-color: rgba(107, 68, 35, 0.5);
+      box-shadow: 0 6px 18px rgba(107, 68, 35, 0.2);
+    }
+
+    .buttons .btn:nth-child(3):hover {
+      border-color: rgba(107, 68, 35, 0.5);
+      box-shadow: 0 6px 18px rgba(107, 68, 35, 0.2);
+    }
+
+    .btn-primary:active {
+      transform: translateY(0);
+    }
+
+    .btn-secondary {
+      background: rgba(255, 252, 245, 0.6);
+      color: #2c1810;
+      border: 1px solid rgba(139, 90, 43, 0.3);
+    }
+
+    .btn-secondary:hover {
+      transform: translateY(-2px);
+      background: rgba(255, 255, 255, 0.12);
+    }
+
+    .btn-secondary:active {
+      transform: translateY(0);
+    }
+
+    /* Modals */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      background: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(4px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.3s ease, visibility 0.3s ease;
+    }
+
+    .modal-overlay.active {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .modal {
+      background: #e8dfc8;
+      border: 1px solid rgba(139, 90, 43, 0.3);
+      border-radius: var(--radius);
+      padding: 1.75rem;
+      max-width: 400px;
+      width: 100%;
+      max-height: 90vh;
+      overflow: auto;
+      transform: scale(0.95);
+      transition: transform 0.3s ease;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    }
+
+    .modal-overlay.active .modal {
+      transform: scale(1);
+    }
+
+    .modal h2 {
+      font-size: 1.25rem;
+      margin-bottom: 1.25rem;
+      color: #3d2817;
+    }
+
+    .modal-close {
+      position: absolute;
+      top: 1rem;
+      right: 1rem;
+      width: 32px;
+      height: 32px;
+      border: none;
+      background: rgba(44, 24, 16, 0.12);
+      color: #2c1810;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 1.25rem;
+      line-height: 1;
+      transition: background 0.2s ease, transform 0.2s ease;
+    }
+
+    .modal-close:hover {
+      background: rgba(44, 24, 16, 0.2);
+      transform: scale(1.05);
+    }
+
+    .modal { position: relative; }
+
+    /* Create room modal */
+    .room-code-box {
+      background: rgba(255, 252, 245, 0.8);
+      border-radius: var(--radius-sm);
+      padding: 1rem;
+      margin-bottom: 1rem;
+      font-family: monospace;
+      font-size: 1.1rem;
+      letter-spacing: 0.1em;
+      text-align: center;
+      color: #3d2817;
+      border: 1px solid rgba(139, 90, 43, 0.2);
+    }
+
+    .room-link-box {
+      background: rgba(255, 252, 245, 0.6);
+      border-radius: var(--radius-sm);
+      padding: 0.75rem 1rem;
+      font-size: 0.9rem;
+      word-break: break-all;
+      color: #5c4033;
+      border: 1px solid rgba(139, 90, 43, 0.15);
+    }
+
+    /* Join modal */
+    .join-input {
+      width: 100%;
+      padding: 0.85rem 1rem;
+      border-radius: var(--radius-sm);
+      border: 1px solid rgba(139, 90, 43, 0.35);
+      background: rgba(255, 252, 245, 0.8);
+      color: #2c1810;
+      font-family: inherit;
+      font-size: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .join-input:focus {
+      outline: none;
+      border-color: #6b4423;
+    }
+
+    /* Rules modal — PDF viewer */
+    .rules-modal .modal {
+      max-width: 560px;
+      padding: 1.5rem;
+    }
+
+    .rules-viewer {
+      position: relative;
+      min-height: 400px;
+      background: rgba(255, 252, 245, 0.5);
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid rgba(139, 90, 43, 0.2);
+    }
+
+    .rules-viewer canvas {
+      max-width: 100%;
+      height: auto;
+      border-radius: var(--radius-sm);
+      display: none;
+    }
+
+    .rules-viewer .placeholder {
+      color: #5c4033;
+      padding: 2rem;
+      text-align: center;
+      font-size: 0.95rem;
+    }
+
+    .rules-viewer .placeholder code {
+      background: rgba(255,255,255,0.08);
+      padding: 0.2em 0.4em;
+      border-radius: 4px;
+      font-size: 0.9em;
+    }
+
+    .rules-nav {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+
+    .rules-nav-btn {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      border: 1px solid rgba(139, 90, 43, 0.35);
+      background: rgba(255, 252, 245, 0.7);
+      color: #2c1810;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s ease, transform 0.2s ease, border-color 0.2s ease;
+    }
+
+    .rules-nav-btn:hover:not(:disabled) {
+      background: #8b5a2b;
+      border-color: #6b4423;
+      color: #f5f0e8;
+      transform: scale(1.08);
+    }
+
+    .rules-nav-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    .rules-nav-btn svg {
+      width: 20px;
+      height: 20px;
+      fill: currentColor;
+    }
+  </style>
+</head>
+<body>
+  <div class="paper-bg" aria-hidden="true"></div>
+  <div class="script-bg" aria-hidden="true">
+    <div class="script-text">
+          <span class="script-line">Во имя мира и любве положили єсмы сїй договоръ о перемирїи.</span>
+          <span class="script-line">Да не преступитъ никто же сего мира, доколѣ стоитъ сїй градъ.</span>
+          <span class="script-line">Князи и воїни да блюдутъ слово своє предъ господемъ.</span>
+          <span class="script-line">Миръ межи нами и потомки нашими на вѣки.</span>
+          <span class="script-line">Рукописание се да пребудетъ нерушимо.</span>
+          <span class="script-line">Лѣта отъ созданія мира писано.</span>
+          <span class="script-line">Се язъ рабъ божїй положилъ печать свою на сїю грамоту.</span>
+          <span class="script-line">По сей грамотѣ вѣдати всѣмъ вѣчный миръ и покой.</span>
+          <span class="script-line">А хто преступитъ — да судитъ его господь и законъ.</span>
+          <span class="script-line">Писано въ лѣто таковое, при свидѣтеляхъ многихъ.</span>
+          <span class="script-line">Клятва наша нерушима до конца дней земныхъ.</span>
+          <span class="script-line">Да будетъ такъ. Аминь.</span>
+          <span class="script-line">И кто сего не вѣруетъ, да не имать части въ семъ мирѣ.</span>
+          <span class="script-line">Свидѣтели же наши — князи, бояре и игумени монастырскіи.</span>
+          <span class="script-line">Печать свою приложихомъ къ сей грамотѣ въ знакъ вѣрности.</span>
+          <span class="script-line">Ни мечемъ, ни огнемъ не разорити сего договора.</span>
+          <span class="script-line">Дѣти наши и внуки да хранятъ завѣтъ сей.</span>
+          <span class="script-line">Господь да блюдетъ миръ межи нами во вѣки вѣковъ.</span>
+          <span class="script-line">Рекли єсмы и писахомъ рукою своею.</span>
+          <span class="script-line">Сїя грамота да пребываетъ нерушима. Конецъ.</span>
+    </div>
+  </div>
+  <div class="wax-seal" aria-hidden="true">
+    <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M32 8 L38 24 L54 24 L42 34 L48 50 L32 40 L16 50 L22 34 L10 24 L26 24 Z"/>
+    </svg>
+  </div>
+
+  <h1 class="page-header">Hidden Leaders</h1>
+  <main class="main-container">
+    <div class="avatar-row">
+      <div class="avatar-block">
+        <div class="avatar-wrap" id="avatarWrap">
+          <span class="avatar-emoji" id="avatarEmoji">👤</span>
+        </div>
+        <button type="button" class="avatar-refresh" id="avatarRefresh" title="Змінити аватар" aria-label="Змінити аватар">
+          <svg viewBox="0 0 24 24"><path d="M17.65 6.35A7.958 7.958 0 0012 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0112 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+        </button>
+      </div>
+      <div class="username-wrap">
+        <input type="text" class="username-input" id="usernameInput" autocomplete="username" placeholder="юзернейм" maxlength="32">
+      </div>
+    </div>
+
+    <div class="buttons">
+      <button type="button" class="btn btn-primary" id="btnCreateRoom">Створити кімнату</button>
+      <button type="button" class="btn btn-secondary" id="btnJoin">Приєднатися</button>
+      <button type="button" class="btn btn-secondary" id="btnRules">Правила</button>
+    </div>
+  </main>
+
+  <!-- Modal: Create room -->
+  <div class="modal-overlay" id="modalCreate" role="dialog" aria-labelledby="modalCreateTitle" aria-modal="true">
+    <div class="modal">
+      <button type="button" class="modal-close" id="closeCreate" aria-label="Закрити">&times;</button>
+      <h2 id="modalCreateTitle">Створити кімнату</h2>
+      <p class="room-code-box" id="roomCodeDisplay">XXXX</p>
+      <p class="room-link-box" id="roomLinkDisplay">Посилання для входу в кімнату (тут буде посилання)</p>
+    </div>
+  </div>
+
+  <!-- Modal: Join -->
+  <div class="modal-overlay" id="modalJoin" role="dialog" aria-labelledby="modalJoinTitle" aria-modal="true">
+    <div class="modal">
+      <button type="button" class="modal-close" id="closeJoin" aria-label="Закрити">&times;</button>
+      <h2 id="modalJoinTitle">Приєднатися до кімнати</h2>
+      <input type="text" class="join-input" id="joinCodeInput" placeholder="Код кімнати" maxlength="10">
+      <button type="button" class="btn btn-primary" id="btnEnterRoom" style="width:100%">Увійти</button>
+    </div>
+  </div>
+
+  <!-- Modal: Rules (PDF-ready) -->
+  <div class="modal-overlay rules-modal" id="modalRules" role="dialog" aria-labelledby="modalRulesTitle" aria-modal="true">
+    <div class="modal">
+      <button type="button" class="modal-close" id="closeRules" aria-label="Закрити">&times;</button>
+      <h2 id="modalRulesTitle">Правила</h2>
+      <div class="rules-viewer">
+        <canvas id="rulesPdfCanvas"></canvas>
+        <div class="placeholder" id="rulesPlaceholder">Тут можна вставити PDF з правилами. Вкажіть URL у змінній <code>rulesPdfUrl</code> у скрипті.</div>
+      </div>
+      <div class="rules-nav">
+        <button type="button" class="rules-nav-btn" id="rulesPrev" aria-label="Попередня сторінка" disabled>
+          <svg viewBox="0 0 24 24"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+        </button>
+        <button type="button" class="rules-nav-btn" id="rulesNext" aria-label="Наступна сторінка">
+          <svg viewBox="0 0 24 24"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <p class="page-footer">By Oleksiy Skripnik</p>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script>
+    (function () {
+      if (typeof pdfjsLib !== 'undefined') {
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      }
+
+      // ——— Avatar (4 variants) ———
+      var avatars = ['👤', '🦊', '🐱', '🎮'];
+      var avatarIndex = 0;
+      var avatarEmoji = document.getElementById('avatarEmoji');
+      var avatarRefresh = document.getElementById('avatarRefresh');
+
+      function setAvatar(index) {
+        avatarIndex = ((index % avatars.length) + avatars.length) % avatars.length;
+        avatarEmoji.style.opacity = '0';
+        setTimeout(function () {
+          avatarEmoji.textContent = avatars[avatarIndex];
+          avatarEmoji.style.opacity = '1';
+        }, 150);
+      }
+
+      avatarRefresh.addEventListener('click', function () {
+        setAvatar(avatarIndex + 1);
+      });
+
+      // ——— Username placeholder ———
+      var usernameInput = document.getElementById('usernameInput');
+      usernameInput.addEventListener('input', function () {
+        this.classList.toggle('placeholder-hidden', this.value.length > 0);
+      });
+      usernameInput.addEventListener('focus', function () {
+        if (this.value.length > 0) this.classList.add('placeholder-hidden');
+      });
+      usernameInput.addEventListener('blur', function () {
+        if (this.value.length === 0) this.classList.remove('placeholder-hidden');
+      });
+
+      // ——— Modals ———
+      function openModal(id) {
+        document.getElementById(id).classList.add('active');
+        document.body.style.overflow = 'hidden';
+      }
+
+      function closeModal(id) {
+        document.getElementById(id).classList.remove('active');
+        document.body.style.overflow = '';
+      }
+
+      document.getElementById('btnCreateRoom').addEventListener('click', function () { openModal('modalCreate'); });
+      document.getElementById('closeCreate').addEventListener('click', function () { closeModal('modalCreate'); });
+      document.getElementById('modalCreate').addEventListener('click', function (e) {
+        if (e.target === this) closeModal('modalCreate');
+      });
+
+      document.getElementById('btnJoin').addEventListener('click', function () {
+        document.getElementById('joinCodeInput').value = '';
+        openModal('modalJoin');
+      });
+      document.getElementById('closeJoin').addEventListener('click', function () { closeModal('modalJoin'); });
+      document.getElementById('modalJoin').addEventListener('click', function (e) {
+        if (e.target === this) closeModal('modalJoin');
+      });
+      document.getElementById('btnEnterRoom').addEventListener('click', function () {
+        var code = document.getElementById('joinCodeInput').value.trim();
+        if (code) { closeModal('modalJoin'); }
+      });
+
+      document.getElementById('btnRules').addEventListener('click', function () {
+        openModal('modalRules');
+        initRulesPdf();
+      });
+      document.getElementById('closeRules').addEventListener('click', function () { closeModal('modalRules'); });
+      document.getElementById('modalRules').addEventListener('click', function (e) {
+        if (e.target === this) closeModal('modalRules');
+      });
+
+      // ——— Rules: PDF по сторінках (PDF.js) ———
+      var rulesPdfUrl = ''; // Вставте URL PDF, наприклад: '/rules.pdf'
+      var rulesPdfDoc = null;
+      var rulesTotalPages = 1;
+      var rulesCurrentPage = 1;
+      var rulesCanvas = document.getElementById('rulesPdfCanvas');
+      var rulesPlaceholder = document.getElementById('rulesPlaceholder');
+      var rulesPrev = document.getElementById('rulesPrev');
+      var rulesNext = document.getElementById('rulesNext');
+
+      function updateRulesNav() {
+        rulesPrev.disabled = rulesCurrentPage <= 1;
+        rulesNext.disabled = rulesCurrentPage >= rulesTotalPages;
+      }
+
+      function renderRulesPage(pageNum) {
+        if (!rulesPdfDoc || !rulesCanvas) return;
+        rulesPdfDoc.getPage(pageNum).then(function (page) {
+          var scale = 1.5;
+          var viewport = page.getViewport({ scale: scale });
+          var container = rulesCanvas.parentElement;
+          var maxW = container ? container.clientWidth : 500;
+          if (viewport.width > maxW) {
+            scale = maxW / viewport.width;
+            viewport = page.getViewport({ scale: scale });
+          }
+          var outputScale = window.devicePixelRatio || 1;
+          rulesCanvas.width = Math.floor(viewport.width * outputScale);
+          rulesCanvas.height = Math.floor(viewport.height * outputScale);
+          rulesCanvas.style.width = viewport.width + 'px';
+          rulesCanvas.style.height = viewport.height + 'px';
+          var ctx = rulesCanvas.getContext('2d');
+          ctx.scale(outputScale, outputScale);
+          page.render({
+            canvasContext: ctx,
+            viewport: viewport
+          });
+        }).catch(function () {});
+      }
+
+      function initRulesPdf() {
+        rulesCurrentPage = 1;
+        if (!rulesPdfUrl || typeof pdfjsLib === 'undefined') {
+          rulesPlaceholder.style.display = 'block';
+          rulesCanvas.style.display = 'none';
+          rulesPrev.disabled = true;
+          rulesNext.disabled = true;
+          return;
+        }
+        rulesPlaceholder.style.display = 'none';
+        rulesCanvas.style.display = 'block';
+        pdfjsLib.getDocument({ url: rulesPdfUrl }).promise.then(function (pdf) {
+          rulesPdfDoc = pdf;
+          rulesTotalPages = pdf.numPages;
+          updateRulesNav();
+          renderRulesPage(1);
+        }).catch(function () {
+          rulesPlaceholder.style.display = 'block';
+          rulesCanvas.style.display = 'none';
+          rulesPrev.disabled = true;
+          rulesNext.disabled = true;
+        });
+      }
+
+      function goRulesPage(delta) {
+        var next = rulesCurrentPage + delta;
+        if (next < 1 || next > rulesTotalPages) return;
+        rulesCurrentPage = next;
+        renderRulesPage(rulesCurrentPage);
+        updateRulesNav();
+      }
+
+      rulesPrev.addEventListener('click', function () { goRulesPage(-1); });
+      rulesNext.addEventListener('click', function () { goRulesPage(1); });
+
+      // ——— Button hover ———
+      [].forEach.call(document.querySelectorAll('.btn'), function (btn) {
+        btn.addEventListener('mouseenter', function () { this.style.transform = 'translateY(-2px)'; });
+        btn.addEventListener('mouseleave', function () {
+          if (document.activeElement !== this) this.style.transform = 'translateY(0)';
+        });
+      });
+    })();
+  </script>
+</body>
+</html>

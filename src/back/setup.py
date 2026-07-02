@@ -24,7 +24,9 @@ CARDS_PATH = Path(__file__).parent / "data" / "cards.json"
 
 
 def load_cards_catalog() -> dict[str, dict]:
-    """Return card_id -> {name, faction, fraction_1?, fraction_2?, leader_number?, ability_id?, red_delta?, green_delta?}."""
+    """Return card_id -> {name, faction, fraction_1?, fraction_2?, leader_number?, markers?, ability?, red_delta?, green_delta?}.
+    Supports old format (heroes with id, faction, ability_id, red_delta, green_delta) and new format (heroes with fraction, markers, ability).
+    """
     with open(CARDS_PATH, encoding="utf-8") as f:
         data = json.load(f)
     catalog = {}
@@ -40,19 +42,34 @@ def load_cards_catalog() -> dict[str, dict]:
     heroes = data.get("heroes", [])
     deceased_id = data.get("deceased_emperor_id", "deceased_emperor")
     catalog[deceased_id] = {"name": "Deceased Emperor", "faction": "Joker", "ability_id": "none", "red_delta": 0, "green_delta": 0}
-    # Expand heroes to DECK_HERO_COUNT (9 copies of each of 8) for full deck
-    hero_ids = [h["id"] for h in heroes]
-    while len(hero_ids) < DECK_HERO_COUNT:
-        hero_ids.extend([h["id"] for h in heroes])
-    hero_ids = hero_ids[:DECK_HERO_COUNT]
-    for h in heroes:
-        catalog[h["id"]] = {
-            "name": h["name"],
-            "faction": h["faction"],
-            "ability_id": h.get("ability_id", "move_markers"),
-            "red_delta": h.get("red_delta", 0),
-            "green_delta": h.get("green_delta", 0),
-        }
+
+    # Detect format: new format has "markers" on first hero
+    use_new_format = heroes and "markers" in (heroes[0] or {})
+
+    if use_new_format:
+        # New format: 72 unique heroes, assign hero_0 .. hero_71; no red_delta/green_delta in catalog (resolved at play time)
+        for i, h in enumerate(heroes):
+            cid = f"hero_{i}"
+            catalog[cid] = {
+                "name": h.get("name", ""),
+                "faction": h.get("fraction", ""),
+                "markers": h.get("markers", {}),
+                "ability": h.get("ability"),
+            }
+    else:
+        # Old format: expand to DECK_HERO_COUNT (9 copies of each of 8)
+        hero_ids = [h["id"] for h in heroes]
+        while len(hero_ids) < DECK_HERO_COUNT:
+            hero_ids.extend([h["id"] for h in heroes])
+        hero_ids = hero_ids[:DECK_HERO_COUNT]
+        for h in heroes:
+            catalog[h["id"]] = {
+                "name": h["name"],
+                "faction": h["faction"],
+                "ability_id": h.get("ability_id", "move_markers"),
+                "red_delta": h.get("red_delta", 0),
+                "green_delta": h.get("green_delta", 0),
+            }
     return catalog
 
 
@@ -84,13 +101,16 @@ def generate_setup_events(state: GameState, catalog: dict, seed: int | None = No
             events.append(("LeaderDealt", LeaderDealt(player_id=p.player_id, leader_card_id=leader_ids[i]).to_payload()))
     first_idx = rng.randint(0, len(state.players) - 1) if state.players else 0
     events.append(("FirstPlayerChosen", FirstPlayerChosen(player_index=first_idx, seed=seed).to_payload()))
-    events.append(("MarkersPlaced", MarkersPlaced(red_position=1, green_position=1).to_payload()))
+    events.append(("MarkersPlaced", MarkersPlaced(red_position=4, green_position=4).to_payload()))
     hero_ids_unique = [c for c in catalog if catalog.get(c, {}).get("faction") not in ("Leader", "Joker") and c != "deceased_emperor"]
-    # Rules: 72 hero cards in full game (73 with Deceased Emperor). Expand to 72.
-    hero_ids = []
-    while len(hero_ids) < DECK_HERO_COUNT:
-        hero_ids.extend(hero_ids_unique)
-    hero_ids = hero_ids[:DECK_HERO_COUNT]
+    # Rules: 72 hero cards in full game. New format: one copy of each of 72 heroes. Old format: expand copies to 72.
+    if len(hero_ids_unique) >= DECK_HERO_COUNT:
+        hero_ids = list(hero_ids_unique)[:DECK_HERO_COUNT]
+    else:
+        hero_ids = []
+        while len(hero_ids) < DECK_HERO_COUNT:
+            hero_ids.extend(hero_ids_unique)
+        hero_ids = hero_ids[:DECK_HERO_COUNT]
     deceased_id = "deceased_emperor"
     harbor, tavern_cards, _ = build_harbor_and_tavern(hero_ids, deceased_id, seed)
     events.append(("DeckShuffled", DeckShuffled(harbor_card_ids=harbor, source="initial").to_payload()))

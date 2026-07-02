@@ -145,3 +145,31 @@ class SessionManager:
         ).to_payload()
         self._event_store.append(room_id, "WinnerDetermined", wd)
         session.apply_event_to_state("WinnerDetermined", wd)
+
+    def force_finish_game(self, session: GameSession) -> None:
+        """Force end the game (for testing). Appends GameEndTriggered, LeaderRevealed, WinnerDetermined. Call with room lock held."""
+        from domain.events import GameEndTriggered, LeaderRevealed, WinnerDetermined
+
+        if session.state.game_ended:
+            return
+        room_id = session.room_id
+        self._event_store.append(room_id, "GameEndTriggered", GameEndTriggered(reason="test").to_payload())
+        session.apply_event_to_state("GameEndTriggered", {"reason": "test"})
+        for p in session.state.players:
+            card = session.state.cards.get(p.leader_card_id, {})
+            pl = LeaderRevealed(
+                player_id=p.player_id,
+                leader_card_id=p.leader_card_id,
+                fraction_1=card.get("fraction_1", ""),
+                fraction_2=card.get("fraction_2", ""),
+                leader_number=card.get("leader_number", 0),
+            ).to_payload()
+            self._event_store.append(room_id, "LeaderRevealed", pl)
+            session.apply_event_to_state("LeaderRevealed", pl)
+        winner_id = determine_winner(session.state)
+        wd = WinnerDetermined(
+            winner_player_id=winner_id,
+            winner_faction=session.state.winner_faction or "",
+        ).to_payload()
+        self._event_store.append(room_id, "WinnerDetermined", wd)
+        session.apply_event_to_state("WinnerDetermined", wd)

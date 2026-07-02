@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="a6a37fe6-e66a-4a31-91dc-379c3788cced" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/.gitignore" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/Pathetic_Lids.iml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/modules.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/modules.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/entities.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/game.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/back/app.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/back/app.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/back/command_handlers.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/back/command_handlers.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/back/data/cards.json" beforeDir="false" afterPath="$PROJECT_DIR$/src/back/data/cards.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/back/data/events.db" beforeDir="false" afterPath="$PROJECT_DIR$/src/back/data/events.db" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/back/domain/commands.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/back/domain/commands.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/back/domain/events.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/back/domain/events.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/back/domain/projection.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/back/domain/projection.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/back/domain/reducer.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/back/domain/reducer.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/back/domain/state.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/back/domain/state.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/back/session.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/back/session.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/back/setup.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/back/setup.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/back/tests/conftest.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/back/tests/conftest.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/back/tests/integration/test_flow_api.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/back/tests/integration/test_flow_api.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/back/tests/test_command_handlers.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/back/tests/test_command_handlers.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/back/tests/test_projection.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/back/tests/test_projection.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/back/tests/test_reducer.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/back/tests/test_reducer.py" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="ProjectColorInfo"><![CDATA[{
+  "customColor": "",
+  "associatedIndex": 6
+}]]></component>
+  <component name="ProjectId" id="3FiVpLF9M5OLgyOY76rv2WmT0OL" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "git-widget-placeholder": "main"
+  }
+}]]></component>
+  <component name="SharedIndexes">
+    <attachedChunks>
+      <set>
+        <option value="bundled-python-sdk-1fd13f53cab9-64d779b69b7a-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-251.29188.40" />
+      </set>
+    </attachedChunks>
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="a6a37fe6-e66a-4a31-91dc-379c3788cced" name="Changes" comment="" />
+      <created>1782558058635</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1782558058635</updated>
+    </task>
+    <servers />
+  </component>
+</project>

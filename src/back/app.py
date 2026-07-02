@@ -7,7 +7,7 @@ import uuid
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException, Header, Depends, APIRouter
+from fastapi import FastAPI, HTTPException, Header, Body, Depends, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, ValidationError
 
@@ -17,18 +17,21 @@ from session import SessionManager, GameSession, load_from_events
 from domain.state import GameState, TurnPhase
 from domain.reducer import apply_event
 from domain.projection import project_state_for_player
-from domain.events import GameCreated, PlayerJoined
+from domain.events import GameCreated, PlayerJoined, PlayerLeft, BackToLobby
 from setup import generate_setup_events
+from domain.exceptions import CommandRejected
+from domain.conditions import evaluate_condition
 from command_handlers import (
     handle_play_card,
+    handle_pass_play,
     handle_discard_cards,
     handle_draw_from_tavern,
     handle_draw_from_harbor,
     handle_refill_tavern,
-    CommandRejected,
 )
 from domain.commands import (
     PlayCardCommand,
+    PassPlayCommand,
     DiscardCardsCommand,
     DrawFromTavernCommand,
     DrawFromHarborCommand,
@@ -105,6 +108,16 @@ class JoinRoomRequest(BaseModel):
 
 class RejoinRequest(BaseModel):
     player_token: str
+
+
+class LeaveRequest(BaseModel):
+    """Optional body for leave; used by sendBeacon (no custom headers on unload)."""
+    player_token: str | None = None
+
+
+class KickRequest(BaseModel):
+    """Creator kicks a player from the lobby."""
+    player_id: str
 
 
 class CommandRequest(BaseModel):
@@ -200,6 +213,9 @@ def join_room(room_id: str, body: JoinRoomRequest):
         raise HTTPException(404, detail={"code": "ROOM_NOT_FOUND", "message": "Кімнату не знайдено"})
     if len(session.state.players) >= session.state.num_players:
         raise HTTPException(409, detail={"code": "ROOM_FULL", "message": "Кімната заповнена"})
+    name_normalized = (body.name or "").strip().lower()
+    if name_normalized and any((p.name or "").strip().lower() == name_normalized for p in session.state.players):
+        raise HTTPException(409, detail={"code": "NAME_TAKEN", "message": "Гравець з таким ім'ям вже в кімнаті"})
     player_id = str(uuid.uuid4())
     player_token = str(uuid.uuid4())
     with mgr._room_lock(room_id):
@@ -238,8 +254,8 @@ def start_game(room_id: str, x_player_token: str = Header(..., alias="X-Player-T
         raise HTTPException(401, detail={"code": "INVALID_TOKEN", "message": "Недійсний або прострочений токен"})
     if session.state.current_phase != TurnPhase.WAITING_FOR_PLAYERS:
         raise HTTPException(409, detail={"code": "GAME_ALREADY_STARTED", "message": "Гра вже почалась"})
-    if len(session.state.players) != session.state.num_players:
-        raise HTTPException(400, detail={"code": "NOT_ENOUGH_PLAYERS", "message": f"Потрібно {session.state.num_players} гравців, зараз {len(session.state.players)}"})
+    if len(session.state.players) < 2:
+        raise HTTPException(400, detail={"code": "NOT_ENOUGH_PLAYERS", "message": "Потрібно щонайменше 2 гравців для старту"})
     if not session.state.cards:
         raise HTTPException(503, detail={"code": "CARDS_NOT_LOADED", "message": "Каталог карт не завантажено"})
 
@@ -324,6 +340,97 @@ def get_state(room_id: str, x_player_token: str = Header(..., alias="X-Player-To
     return view
 
 
+@router.post("/rooms/{room_id}/leave", summary="Leave room (lobby only)")
+def leave_room(
+    room_id: str,
+    x_player_token: str | None = Header(None, alias="X-Player-Token"),
+    body: LeaveRequest | None = Body(None),
+):
+    """Leave the room. Only allowed in lobby (WAITING_FOR_PLAYERS). Token: header X-Player-Token or body.player_token (for sendBeacon on unload)."""
+    mgr = get_session_manager()
+    session = mgr.get_or_load(room_id)
+    if not session:
+        raise HTTPException(404, detail={"code": "ROOM_NOT_FOUND", "message": "Кімнату не знайдено"})
+    token = x_player_token or (body.player_token if body else None)
+    if not token:
+        raise HTTPException(401, detail={"code": "MISSING_TOKEN", "message": "Потрібен токен гравця (X-Player-Token або body.player_token)"})
+    player_id = _player_id_from_token(session, token)
+    if not player_id:
+        raise HTTPException(401, detail={"code": "INVALID_TOKEN", "message": "Недійсний або прострочений токен"})
+    if session.state.current_phase != TurnPhase.WAITING_FOR_PLAYERS:
+        raise HTTPException(409, detail={"code": "GAME_STARTED", "message": "Не можна вийти під час гри"})
+
+    with mgr._room_lock(room_id):
+        session = mgr.get_or_load(room_id)
+        if not session or session.state.current_phase != TurnPhase.WAITING_FOR_PLAYERS:
+            raise HTTPException(409, detail={"code": "GAME_STARTED", "message": "Не можна вийти під час гри"})
+        if not any(p.player_id == player_id for p in session.state.players):
+            return {}
+        event_store.append(room_id, "PlayerLeft", PlayerLeft(player_id=player_id).to_payload())
+        session.apply_event_to_state("PlayerLeft", {"player_id": player_id})
+    logger.info("player_left room_id=%s player_id=%s", room_id[:8], player_id[:8])
+    return {}
+
+
+@router.post("/rooms/{room_id}/kick", summary="Kick a player from the lobby (creator only)")
+def kick_player(
+    room_id: str,
+    x_player_token: str = Header(..., alias="X-Player-Token"),
+    body: KickRequest = Body(...),
+):
+    """Remove a player from the room. Only the room creator can kick. Only in lobby (WAITING_FOR_PLAYERS)."""
+    mgr = get_session_manager()
+    session = mgr.get_or_load(room_id)
+    if not session:
+        raise HTTPException(404, detail={"code": "ROOM_NOT_FOUND", "message": "Кімнату не знайдено"})
+    caller_id = _player_id_from_token(session, x_player_token)
+    if not caller_id:
+        raise HTTPException(401, detail={"code": "INVALID_TOKEN", "message": "Недійсний або прострочений токен"})
+    if session.state.current_phase != TurnPhase.WAITING_FOR_PLAYERS:
+        raise HTTPException(409, detail={"code": "GAME_STARTED", "message": "Вилучати гравців можна лише в лобі"})
+    if session.state.creator_player_id != caller_id:
+        raise HTTPException(403, detail={"code": "NOT_CREATOR", "message": "Лише власник кімнати може вилучати гравців"})
+    target_id = body.player_id
+    if target_id == caller_id:
+        raise HTTPException(400, detail={"code": "CANNOT_KICK_SELF", "message": "Не можна вилучити себе; використовуйте «Вийти»"})
+    if not any(p.player_id == target_id for p in session.state.players):
+        raise HTTPException(404, detail={"code": "PLAYER_NOT_IN_ROOM", "message": "Гравця не знайдено в кімнаті"})
+
+    with mgr._room_lock(room_id):
+        session = mgr.get_or_load(room_id)
+        if not session or session.state.current_phase != TurnPhase.WAITING_FOR_PLAYERS:
+            raise HTTPException(409, detail={"code": "GAME_STARTED", "message": "Вилучати гравців можна лише в лобі"})
+        if not any(p.player_id == target_id for p in session.state.players):
+            return {}
+        event_store.append(room_id, "PlayerLeft", PlayerLeft(player_id=target_id).to_payload())
+        session.apply_event_to_state("PlayerLeft", {"player_id": target_id})
+    logger.info("player_kicked room_id=%s target_id=%s by=%s", room_id[:8], target_id[:8], caller_id[:8])
+    return {}
+
+
+@router.post("/rooms/{room_id}/back_to_lobby", summary="Back to lobby after game end")
+def back_to_lobby(room_id: str, x_player_token: str = Header(..., alias="X-Player-Token")):
+    """Reset room to lobby (same players) so they can start a new game. Only when game has ended."""
+    mgr = get_session_manager()
+    session = mgr.get_or_load(room_id)
+    if not session:
+        raise HTTPException(404, detail={"code": "ROOM_NOT_FOUND", "message": "Кімнату не знайдено"})
+    player_id = _player_id_from_token(session, x_player_token)
+    if not player_id:
+        raise HTTPException(401, detail={"code": "INVALID_TOKEN", "message": "Недійсний або прострочений токен"})
+    if not session.state.game_ended:
+        raise HTTPException(409, detail={"code": "GAME_NOT_ENDED", "message": "Гра ще не завершена"})
+    with mgr._room_lock(room_id):
+        session = mgr.get_or_load(room_id)
+        if not session or not session.state.game_ended:
+            raise HTTPException(409, detail={"code": "GAME_NOT_ENDED", "message": "Гра ще не завершена"})
+        event_store.append(room_id, "BackToLobby", BackToLobby().to_payload())
+        session.apply_event_to_state("BackToLobby", {"event_version": 1})
+    view = project_state_for_player(session.state, player_id)
+    logger.info("back_to_lobby room_id=%s", room_id[:8])
+    return {"state": view}
+
+
 @router.post("/rooms/{room_id}/commands", summary="Send command")
 def post_command(
     room_id: str,
@@ -351,27 +458,42 @@ def post_command(
             view = project_state_for_player(session.state, player_id)
             return {"state": view}
 
+        play_card_pl = None
+        response_extras = {}
         try:
-            if body.command == "PlayCard":
+            cmd_name = (body.command or "").strip()
+            # EndGame — тестова команда (примусово завершити гру); перевіряємо першим і приймаємо будь-який регістр
+            if cmd_name.lower() == "endgame":
+                if session.state.game_ended:
+                    view = project_state_for_player(session.state, player_id)
+                    return {"state": view}
+                mgr.force_finish_game(session)
+                view = project_state_for_player(session.state, player_id)
+                return {"state": view}
+            if cmd_name == "PlayCard":
                 pl = PlayCardPayload.model_validate(body.payload)
+                play_card_pl = pl
                 cmd = PlayCardCommand(room_id=room_id, player_id=player_id, card_id=pl.card_id, targets=pl.targets)
                 events = handle_play_card(session.state, cmd)
-            elif body.command == "DiscardCards":
+            elif cmd_name == "DiscardCards":
                 pl = DiscardCardsPayload.model_validate(body.payload)
                 cmd = DiscardCardsCommand(room_id=room_id, player_id=player_id, card_ids=pl.card_ids)
                 events = handle_discard_cards(session.state, cmd)
-            elif body.command == "DrawFromTavern":
+            elif cmd_name == "DrawFromTavern":
                 pl = DrawFromTavernPayload.model_validate(body.payload)
                 cmd = DrawFromTavernCommand(room_id=room_id, player_id=player_id, slot_index=pl.slot_index)
                 events = handle_draw_from_tavern(session.state, cmd)
-            elif body.command == "DrawFromHarbor":
+            elif cmd_name == "DrawFromHarbor":
                 DrawFromHarborPayload.model_validate(body.payload)
                 cmd = DrawFromHarborCommand(room_id=room_id, player_id=player_id)
                 events = handle_draw_from_harbor(session.state, cmd)
-            elif body.command == "RefillTavern":
+            elif cmd_name == "RefillTavern":
                 RefillTavernPayload.model_validate(body.payload)
                 cmd = RefillTavernCommand(room_id=room_id, player_id=player_id)
                 events = handle_refill_tavern(session.state, cmd)
+            elif cmd_name == "PassPlay":
+                cmd = PassPlayCommand(room_id=room_id, player_id=player_id)
+                events = handle_pass_play(session.state, cmd)
             else:
                 raise HTTPException(400, detail={"code": "UNKNOWN_COMMAND", "message": f"Невідома команда: {body.command}"})
         except CommandRejected as e:
@@ -383,8 +505,78 @@ def post_command(
         if idempotency_key:
             mgr.record_idempotent_command(room_id, player_id, idempotency_key)
         logger.info("command room_id=%s player_id=%s command=%s", room_id[:8], player_id[:8], body.command)
+        if cmd_name == "PlayCard" and play_card_pl is not None:
+            card_data = session.state.cards.get(play_card_pl.card_id, {})
+            ability = (card_data.get("ability") or {})
+            action = ability.get("action")
+            if action == "Reveal_Harbor":
+                if not ability.get("condition") or evaluate_condition(
+                    ability["condition"], session.state, {"player_id": player_id}
+                ):
+                    response_extras["reveal_harbor"] = list(session.state.harbor[: ability.get("count", 2)])
+            # Perform_Self / Perform: if the performed card had Reveal_Harbor, return harbor in response
+            if action in ("Perform_Self", "Perform"):
+                targets = play_card_pl.targets or {}
+                idx = targets.get("target_hidden_index", 0)
+                actor = session.state.get_player(player_id)
+                if actor and 0 <= idx < len(actor.hidden_heroes):
+                    performed_card_id = actor.hidden_heroes[idx].card_id
+                    performed_ability = (session.state.cards.get(performed_card_id) or {}).get("ability") or {}
+                    if performed_ability.get("action") == "Reveal_Harbor":
+                        if not performed_ability.get("condition") or evaluate_condition(
+                            performed_ability["condition"], session.state, {"player_id": player_id}
+                        ):
+                            response_extras["reveal_harbor"] = list(
+                                session.state.harbor[: performed_ability.get("count", 2)]
+                            )
+            # Bury_Perform: performed card was in tavern; find it from events and add reveal_harbor if needed
+            if action == "Bury_Perform":
+                slot = (play_card_pl.targets or {}).get("tavern_slot", 0)
+                for ev_type, payload in events:
+                    if ev_type == "CardMoved" and (payload.get("from_zone") or "").startswith("tavern_"):
+                        performed_card_id = payload.get("card_id")
+                        if performed_card_id:
+                            performed_ability = (session.state.cards.get(performed_card_id) or {}).get("ability") or {}
+                            if performed_ability.get("action") == "Reveal_Harbor":
+                                if not performed_ability.get("condition") or evaluate_condition(
+                                    performed_ability["condition"], session.state, {"player_id": player_id}
+                                ):
+                                    response_extras["reveal_harbor"] = list(
+                                        session.state.harbor[: performed_ability.get("count", 2)]
+                                    )
+                        break
+            # Perform_Top: performed card is top of graveyard (still there after apply)
+            if action == "Perform_Top" and session.state.graveyard:
+                performed_card_id = session.state.graveyard[-1]
+                performed_ability = (session.state.cards.get(performed_card_id) or {}).get("ability") or {}
+                if performed_ability.get("action") == "Reveal_Harbor":
+                    if not performed_ability.get("condition") or evaluate_condition(
+                        performed_ability["condition"], session.state, {"player_id": player_id}
+                    ):
+                        response_extras["reveal_harbor"] = list(
+                            session.state.harbor[: performed_ability.get("count", 2)]
+                        )
+            if action in ("Look", "Flip_Or_Look"):
+                targets = play_card_pl.targets or {}
+                tid = targets.get("target_player_id")
+                if not tid:
+                    # "Look at your party" (e.g. Minor Fishguard): no target_player or target_player !== "other" -> self
+                    if ability.get("target_player") != "other":
+                        tid = player_id
+                    elif len(session.state.players) == 2:
+                        for p in session.state.players:
+                            if p.player_id != player_id:
+                                tid = p.player_id
+                                break
+                if tid:
+                    tp = session.state.get_player(tid)
+                    if tp and getattr(tp, "hidden_heroes", None):
+                        idx = targets.get("target_hidden_index", 0)
+                        if 0 <= idx < len(tp.hidden_heroes):
+                            cid = tp.hidden_heroes[idx].card_id
+                            response_extras["peek_card"] = session.state.cards.get(cid, {"card_id": cid})
     view = project_state_for_player(session.state, player_id)
-    return {"state": view}
+    return {"state": view, **response_extras}
 
 
 # Mount v1 router and CORS

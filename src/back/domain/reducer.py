@@ -7,7 +7,7 @@ from copy import deepcopy
 from domain.events import parse_event
 from domain.state import GameState, PlayerInState, HeroRef, TurnPhase
 from domain.game_end import get_winning_faction
-from domain.constants import MARKER_MIN, MARKER_MAX
+from domain.constants import MARKER_MIN, MARKER_MAX, TAVERN_SLOTS
 
 
 def _clamp_marker(v: int) -> int:
@@ -40,6 +40,38 @@ def apply_event(state: GameState, event_type: str, payload: dict) -> GameState:
             hidden_heroes=[],
             player_token=token,
         ))
+        if s.creator_player_id is None:
+            s.creator_player_id = pid
+        return s
+
+    if event_type == "PlayerLeft":
+        pid = getattr(ev, "player_id", "")
+        was_creator = s.creator_player_id == pid
+        s.players = [p for p in s.players if p.player_id != pid]
+        if was_creator and s.players:
+            s.creator_player_id = s.players[0].player_id
+        elif was_creator:
+            s.creator_player_id = None
+        return s
+
+    if event_type == "BackToLobby":
+        s.current_phase = TurnPhase.WAITING_FOR_PLAYERS
+        s.game_ended = False
+        s.winner_faction = None
+        s.winner_player_id = None
+        s.current_player_index = 0
+        s.red_marker = 1
+        s.green_marker = 1
+        s.harbor = []
+        s.wilderness = []
+        s.tavern = [None] * TAVERN_SLOTS
+        s.graveyard = []
+        s.revealed_leaders = {}
+        for p in s.players:
+            p.leader_card_id = ""
+            p.hand_card_ids = []
+            p.open_heroes = []
+            p.hidden_heroes = []
         return s
 
     if event_type == "FirstPlayerChosen":
@@ -182,7 +214,10 @@ def apply_event(state: GameState, event_type: str, payload: dict) -> GameState:
     if event_type == "HeroKilled":
         pid = getattr(ev, "player_id", "")
         card_id = getattr(ev, "card_id", "")
+        # Only send to wilderness when explicitly False; default is graveyard (Bury, Kill, etc.)
         to_graveyard = getattr(ev, "to_graveyard", True)
+        if to_graveyard is not True and to_graveyard is not False:
+            to_graveyard = True  # normalize 0/None/other to graveyard
         for p in s.players:
             if p.player_id == pid:
                 for ref in list(p.open_heroes):
@@ -195,10 +230,10 @@ def apply_event(state: GameState, event_type: str, payload: dict) -> GameState:
                             p.hidden_heroes.remove(ref)
                             break
                 break
-        if to_graveyard:
-            s.graveyard.append(card_id)
-        else:
+        if to_graveyard is False:
             s.wilderness.append(card_id)
+        else:
+            s.graveyard.append(card_id)
         return s
 
     if event_type == "TavernRefilled":
@@ -208,6 +243,94 @@ def apply_event(state: GameState, event_type: str, payload: dict) -> GameState:
             s.tavern[slot] = card_id
             if s.harbor and s.harbor[0] == card_id:
                 s.harbor = s.harbor[1:]
+        return s
+
+    if event_type == "CardMoved":
+        card_id = getattr(ev, "card_id", "")
+        from_zone = getattr(ev, "from_zone", "")
+        to_zone = getattr(ev, "to_zone", "")
+        from_pid = getattr(ev, "from_player_id", None)
+        to_pid = getattr(ev, "to_player_id", None)
+        slot_from = getattr(ev, "tavern_slot_from", None)
+        slot_to = getattr(ev, "tavern_slot_to", None)
+
+        def remove_from_zone():
+            if from_zone == "hand" and from_pid:
+                for p in s.players:
+                    if p.player_id == from_pid and card_id in p.hand_card_ids:
+                        p.hand_card_ids.remove(card_id)
+                        return
+            if from_zone == "party_open" and from_pid:
+                for p in s.players:
+                    if p.player_id == from_pid:
+                        for ref in list(p.open_heroes):
+                            if ref.card_id == card_id:
+                                p.open_heroes.remove(ref)
+                                return
+            if from_zone == "party_hidden" and from_pid:
+                for p in s.players:
+                    if p.player_id == from_pid:
+                        for ref in list(p.hidden_heroes):
+                            if ref.card_id == card_id:
+                                p.hidden_heroes.remove(ref)
+                                return
+            if from_zone.startswith("tavern_") and slot_from is not None and 0 <= slot_from < len(s.tavern):
+                if s.tavern[slot_from] == card_id:
+                    s.tavern[slot_from] = None
+            if from_zone == "harbor" and s.harbor and card_id in s.harbor:
+                s.harbor = [c for c in s.harbor if c != card_id]
+            if from_zone == "graveyard" and s.graveyard and card_id in s.graveyard:
+                s.graveyard = [c for c in s.graveyard if c != card_id]
+
+        def add_to_zone():
+            if to_zone == "hand" and to_pid:
+                for p in s.players:
+                    if p.player_id == to_pid:
+                        p.hand_card_ids.append(card_id)
+                        return
+            if to_zone == "party_open" and to_pid:
+                for p in s.players:
+                    if p.player_id == to_pid:
+                        p.open_heroes.append(HeroRef(card_id=card_id))
+                        return
+            if to_zone == "party_hidden" and to_pid:
+                for p in s.players:
+                    if p.player_id == to_pid:
+                        p.hidden_heroes.append(HeroRef(card_id=card_id))
+                        return
+            if to_zone.startswith("tavern_") and slot_to is not None and 0 <= slot_to < len(s.tavern):
+                s.tavern[slot_to] = card_id
+            if to_zone == "harbor":
+                s.harbor.insert(0, card_id)
+            if to_zone == "graveyard":
+                s.graveyard.append(card_id)
+            if to_zone == "wilderness":
+                s.wilderness.append(card_id)
+
+        remove_from_zone()
+        add_to_zone()
+        return s
+
+    if event_type == "HeroFlippedFaceDown":
+        pid = getattr(ev, "player_id", "")
+        card_id = getattr(ev, "card_id", "")
+        for p in s.players:
+            if p.player_id == pid:
+                for ref in list(p.open_heroes):
+                    if ref.card_id == card_id:
+                        p.open_heroes.remove(ref)
+                        p.hidden_heroes.append(ref)
+                        break
+                break
+        return s
+
+    if event_type == "HandsSwapped":
+        pid1 = getattr(ev, "player_id_1", "")
+        pid2 = getattr(ev, "player_id_2", "")
+        p1 = next((p for p in s.players if p.player_id == pid1), None)
+        p2 = next((p for p in s.players if p.player_id == pid2), None)
+        if p1 and p2:
+            p1.hand_card_ids, p2.hand_card_ids = p2.hand_card_ids, p1.hand_card_ids
         return s
 
     if event_type == "TurnPhaseChanged":

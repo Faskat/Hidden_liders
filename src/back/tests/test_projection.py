@@ -125,3 +125,17 @@ def test_tavern_and_markers_in_view():
     assert len(view["tavern"]) == 3
     assert view["tavern"][0]["card_id"] == "hero_r"
     assert view["tavern"][2] is None
+
+
+def test_view_includes_cards_catalog():
+    catalog = make_catalog()
+    state = GameState(
+        room_id="r1",
+        cards=catalog,
+        players=[PlayerInState(player_id="p1", name="A", leader_card_id="leader_a")],
+    )
+    view = project_state_for_player(state, "p1")
+    assert "cards" in view
+    assert view["cards"] == catalog
+    assert view["cards"].get("hero_r", {}).get("name") == "Red"
+    assert view["cards"].get("hero_r", {}).get("faction") == "Imperials"

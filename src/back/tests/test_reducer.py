@@ -189,3 +189,67 @@ class TestReducerFirstPlayerChosen:
         out = apply_event(state, "FirstPlayerChosen", {"player_index": 1})
         assert out.current_phase == TurnPhase.PLAY
         assert out.current_player_index == 1
+
+
+class TestReducerCardMoved:
+    def test_hand_to_hand_between_players(self):
+        state = GameState(
+            players=[
+                PlayerInState(player_id="p1", name="A", leader_card_id="l1", hand_card_ids=["c1"]),
+                PlayerInState(player_id="p2", name="B", leader_card_id="l2", hand_card_ids=[]),
+            ],
+        )
+        out = apply_event(
+            state,
+            "CardMoved",
+            {"card_id": "c1", "from_zone": "hand", "to_zone": "hand", "from_player_id": "p1", "to_player_id": "p2"},
+        )
+        assert "c1" not in out.get_player("p1").hand_card_ids
+        assert "c1" in out.get_player("p2").hand_card_ids
+
+    def test_tavern_slot_to_hand(self):
+        state = GameState(
+            tavern=["c1", None, None],
+            players=[PlayerInState(player_id="p1", name="A", leader_card_id="l1", hand_card_ids=[])],
+        )
+        out = apply_event(
+            state,
+            "CardMoved",
+            {"card_id": "c1", "from_zone": "tavern_0", "to_zone": "hand", "to_player_id": "p1", "tavern_slot_from": 0},
+        )
+        assert out.tavern[0] is None
+        assert out.get_player("p1").hand_card_ids == ["c1"]
+
+
+class TestReducerHeroFlippedFaceDown:
+    def test_moves_open_hero_to_hidden(self):
+        state = GameState(
+            players=[
+                PlayerInState(
+                    player_id="p1",
+                    name="A",
+                    leader_card_id="l1",
+                    open_heroes=[HeroRef(card_id="c1"), HeroRef(card_id="c2")],
+                    hidden_heroes=[],
+                ),
+            ],
+        )
+        out = apply_event(state, "HeroFlippedFaceDown", {"player_id": "p1", "card_id": "c2"})
+        p = out.get_player("p1")
+        assert len(p.open_heroes) == 1
+        assert p.open_heroes[0].card_id == "c1"
+        assert len(p.hidden_heroes) == 1
+        assert p.hidden_heroes[0].card_id == "c2"
+
+
+class TestReducerHandsSwapped:
+    def test_swaps_hand_card_ids(self):
+        state = GameState(
+            players=[
+                PlayerInState(player_id="p1", name="A", leader_card_id="l1", hand_card_ids=["a", "b"]),
+                PlayerInState(player_id="p2", name="B", leader_card_id="l2", hand_card_ids=["x"]),
+            ],
+        )
+        out = apply_event(state, "HandsSwapped", {"player_id_1": "p1", "player_id_2": "p2"})
+        assert out.get_player("p1").hand_card_ids == ["x"]
+        assert out.get_player("p2").hand_card_ids == ["a", "b"]

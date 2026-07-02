@@ -71,8 +71,13 @@ def project_state_for_player(state: GameState, player_id: str) -> dict[str, Any]
         else:
             tavern_view.append(None)
 
+    creator = state.creator_player_id
+    if creator is None and state.players:
+        creator = state.players[0].player_id
+
     return {
         "room_id": state.room_id,
+        "creator_player_id": creator,
         "current_phase": state.current_phase.value,
         "current_player_index": state.current_player_index,
         "current_player_id": (
@@ -86,6 +91,7 @@ def project_state_for_player(state: GameState, player_id: str) -> dict[str, Any]
         "tavern": tavern_view,
         "harbor_count": len(state.harbor),
         "wilderness_count": len(state.wilderness),
+        "graveyard_count": len(state.graveyard),
         "graveyard_top": (
             {"card_id": state.graveyard[-1], **state.cards.get(state.graveyard[-1], {})}
             if state.graveyard
@@ -95,4 +101,5 @@ def project_state_for_player(state: GameState, player_id: str) -> dict[str, Any]
         "winner_faction": state.winner_faction,
         "winner_player_id": state.winner_player_id,
         "revealed_leaders": state.revealed_leaders if state.game_ended else {},
+        "cards": dict(state.cards),
     }

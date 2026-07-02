@@ -40,6 +40,20 @@ class PlayerJoined(BaseModel):
         return _payload("PlayerJoined", **self.model_dump())
 
 
+class PlayerLeft(BaseModel):
+    player_id: str
+
+    def to_payload(self) -> dict:
+        return _payload("PlayerLeft", **self.model_dump())
+
+
+class BackToLobby(BaseModel):
+    """After game end: reset to lobby (same players) so they can start a new game."""
+
+    def to_payload(self) -> dict:
+        return _payload("BackToLobby", event_version=1)
+
+
 class FirstPlayerChosen(BaseModel):
     player_index: int
     seed: int | None = None
@@ -187,6 +201,38 @@ class TavernRefilled(BaseModel):
         return _payload("TavernRefilled", **self.model_dump())
 
 
+class CardMoved(BaseModel):
+    """One card moved between zones (for Swap abilities)."""
+    card_id: str
+    from_zone: str  # hand | tavern_0 | tavern_1 | tavern_2 | harbor | party_open | party_hidden | graveyard
+    to_zone: str
+    from_player_id: str | None = None
+    to_player_id: str | None = None
+    tavern_slot_from: int | None = None
+    tavern_slot_to: int | None = None
+
+    def to_payload(self) -> dict:
+        return _payload("CardMoved", **self.model_dump())
+
+
+class HeroFlippedFaceDown(BaseModel):
+    """Open hero in party flipped to face-down (hidden)."""
+    player_id: str
+    card_id: str
+
+    def to_payload(self) -> dict:
+        return _payload("HeroFlippedFaceDown", **self.model_dump())
+
+
+class HandsSwapped(BaseModel):
+    """Swap hand_card_ids between two players (Swap_Hand ability)."""
+    player_id_1: str
+    player_id_2: str
+
+    def to_payload(self) -> dict:
+        return _payload("HandsSwapped", **self.model_dump())
+
+
 class TurnPhaseChanged(BaseModel):
     phase: str  # PLAY | DRAW | DISCARD | REFILL_TAVERN
     current_player_index: int | None = None
@@ -228,6 +274,8 @@ def parse_event(event_type: str, payload: dict) -> BaseModel | None:
     cls = {
         "GameCreated": GameCreated,
         "PlayerJoined": PlayerJoined,
+        "PlayerLeft": PlayerLeft,
+        "BackToLobby": BackToLobby,
         "FirstPlayerChosen": FirstPlayerChosen,
         "LeaderDealt": LeaderDealt,
         "MarkersPlaced": MarkersPlaced,
@@ -245,6 +293,9 @@ def parse_event(event_type: str, payload: dict) -> BaseModel | None:
         "HeroKilled": HeroKilled,
         "CardDrawn": CardDrawn,
         "TavernRefilled": TavernRefilled,
+        "CardMoved": CardMoved,
+        "HeroFlippedFaceDown": HeroFlippedFaceDown,
+        "HandsSwapped": HandsSwapped,
         "TurnPhaseChanged": TurnPhaseChanged,
         "GameEndTriggered": GameEndTriggered,
         "LeaderRevealed": LeaderRevealed,
@@ -254,4 +305,7 @@ def parse_event(event_type: str, payload: dict) -> BaseModel | None:
         return None
     # Ignore unknown fields for schema evolution
     data = {k: v for k, v in payload.items() if k in cls.model_fields}
+    # HeroKilled: Bury/Kill always send to graveyard (ignore any stored False/0 to avoid wilderness)
+    if event_type == "HeroKilled":
+        data["to_graveyard"] = True
     return cls.model_validate(data)

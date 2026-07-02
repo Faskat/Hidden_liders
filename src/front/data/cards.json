@@ -1,0 +1,21 @@
+{
+  "heroes": [
+    {"id": "hero_1", "name": "Hero 1", "faction": "Undead", "ability_id": "move_markers", "red_delta": 1, "green_delta": 0},
+    {"id": "hero_2", "name": "Hero 2", "faction": "Undead", "ability_id": "move_markers", "red_delta": 0, "green_delta": -1},
+    {"id": "hero_3", "name": "Hero 3", "faction": "Waterfolk", "ability_id": "move_markers", "red_delta": 0, "green_delta": 1},
+    {"id": "hero_4", "name": "Hero 4", "faction": "Waterfolk", "ability_id": "move_markers", "red_delta": -1, "green_delta": 0},
+    {"id": "hero_5", "name": "Hero 5", "faction": "Imperials", "ability_id": "move_markers", "red_delta": 2, "green_delta": 0},
+    {"id": "hero_6", "name": "Hero 6", "faction": "Imperials", "ability_id": "move_markers", "red_delta": 0, "green_delta": -2},
+    {"id": "hero_7", "name": "Hero 7", "faction": "Highlanders", "ability_id": "move_markers", "red_delta": 0, "green_delta": 2},
+    {"id": "hero_8", "name": "Hero 8", "faction": "Highlanders", "ability_id": "move_markers", "red_delta": -2, "green_delta": 0}
+  ],
+  "leaders": [
+    {"id": "leader_pavyr", "name": "Pavyr", "fraction_1": "Highlanders", "fraction_2": "Imperials", "leader_number": 5},
+    {"id": "leader_myrad", "name": "Myrad", "fraction_1": "Undead", "fraction_2": "Highlanders", "leader_number": 3},
+    {"id": "leader_lemron", "name": "Lemron", "fraction_1": "Waterfolk", "fraction_2": "Highlanders", "leader_number": 1},
+    {"id": "leader_cyra", "name": "Cyra", "fraction_1": "Waterfolk", "fraction_2": "Imperials", "leader_number": 2},
+    {"id": "leader_xiadul", "name": "Xiadul", "fraction_1": "Imperials", "fraction_2": "Undead", "leader_number": 4},
+    {"id": "leader_enned", "name": "Enned", "fraction_1": "Waterfolk", "fraction_2": "Undead", "leader_number": 6}
+  ],
+  "deceased_emperor_id": "deceased_emperor"
+}

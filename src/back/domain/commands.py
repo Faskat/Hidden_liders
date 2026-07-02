@@ -32,3 +32,8 @@ class RefillTavernCommand(BaseModel):
     room_id: str
     player_id: str
     # Optional: server can infer empty slots
+
+
+class PassPlayCommand(BaseModel):
+    room_id: str
+    player_id: str

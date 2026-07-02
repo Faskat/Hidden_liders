@@ -1,0 +1,1023 @@
+[
+    {
+      "name": "Shaky Sharpshooter",
+      "fraction": "Highlanders",
+      "markers": {
+        "red": 1,
+        "green": 0,
+        "logic": "AND"
+      },
+      "ability": {
+        "action": "Kill",
+        "target_player": "other",
+        "target_zone": "Party",
+        "visibility": "face_down",
+        "filters": {
+          "fraction": "Undead"
+        }
+      }
+    },
+    {
+      "name": "Depressed Druid",
+      "fraction": "Highlanders",
+      "markers": {
+        "red": -2,
+        "green": -1,
+        "logic": "AND"
+      },
+      "ability": null
+    },
+    {
+      "name": "Cave Keeper",
+      "fraction": "Highlanders",
+      "markers": {
+        "red": 0,
+        "green": 2,
+        "logic": "AND"
+      },
+      "ability": {
+        "action": "Condition",
+        "condition": "no_red_in_tavern"
+      }
+    },
+    {
+      "name": "Dreamy Hermit",
+      "fraction": "Highlanders",
+      "markers": {
+        "red": 0,
+        "green": 1,
+        "logic": "OR",
+        "green_alt": 2
+      },
+      "ability": {
+        "action": "Condition",
+        "condition": "green_behind_red"
+      }
+    },
+    {
+      "name": "Long-eared Loner",
+      "fraction": "Highlanders",
+      "markers": {
+        "red": 0,
+        "green": 1,
+        "logic": "AND"
+      },
+      "ability": {
+        "action": "Flip",
+        "target_player": "other",
+        "target_zone": "Party"
+      }
+    },
+    {
+      "name": "Saber Tooth Troll",
+      "fraction": "Highlanders",
+      "markers": {
+        "red": 0,
+        "green": 2,
+        "logic": "OR_NEG"
+      },
+      "ability": {
+        "action": "Swap",
+        "source": "other_party",
+        "target": "self_hand",
+        "visibility": "face_up"
+      }
+    },
+    {
+      "name": "Intimidating Tribesman",
+      "fraction": "Highlanders",
+      "markers": {
+        "red": "X",
+        "green": 0,
+        "logic": "AND"
+      },
+      "ability": {
+        "action": "Calculation",
+        "x_source": "target_party_markers"
+      }
+    },
+    {
+      "name": "Spirited Shaman",
+      "fraction": "Highlanders",
+      "markers": {
+        "red": 0,
+        "green": 2,
+        "logic": "AND"
+      },
+      "ability": {
+        "action": "Condition",
+        "condition": "has_blue_black_party"
+      }
+    },
+    {
+      "name": "Grumpy Guard",
+      "fraction": "Highlanders",
+      "markers": {
+        "red": 0,
+        "green": 1,
+        "logic": "AND"
+      },
+      "ability": {
+        "action": "Draw",
+        "source": [
+          "Harbor",
+          "Tavern"
+        ],
+        "count": 3
+      }
+    },
+    {
+      "name": "Righteous Battle Maid",
+      "fraction": "Highlanders",
+      "markers": {
+        "red": 1,
+        "green": -1,
+        "logic": "OR"
+      },
+      "ability": {
+        "action": "Bury",
+        "target_player": "other",
+        "target_zone": "Party",
+        "visibility": "face_down"
+      }
+    },
+    {
+      "name": "Hangry Barbarian",
+      "fraction": "Highlanders",
+      "markers": {
+        "red": 0,
+        "green": "X",
+        "logic": "AND"
+      },
+      "ability": {
+        "action": "Calculation",
+        "x_source": "tavern_not_red"
+      }
+    },
+    {
+      "name": "Joyless Chief",
+      "fraction": "Highlanders",
+      "markers": {
+        "red": 0,
+        "green": -1,
+        "logic": "AND"
+      },
+      "ability": {
+        "action": "Draw",
+        "source": "Tavern",
+        "count": 2,
+        "distribution": {
+          "Party": 1,
+          "Wilderness": 1
+        }
+      }
+    },
+    {
+      "name": "Familiar Handler",
+      "fraction": "Highlanders",
+      "markers": {
+        "red": 1,
+        "green": 1,
+        "logic": "AND"
+      },
+      "ability": {
+        "action": "Place",
+        "source": "hand",
+        "target": "Party",
+        "visibility": "face_down"
+      }
+    },
+    {
+      "name": "Curious Troll",
+      "fraction": "Highlanders",
+      "markers": {
+        "red": -1,
+        "green": 1,
+        "logic": "OR"
+      },
+      "ability": {
+        "action": "Look",
+        "target_player": "other",
+        "target_zone": "Party",
+        "count": 2,
+        "visibility": "face_down"
+      }
+    },
+    {
+      "name": "Furious Pigman",
+      "fraction": "Highlanders",
+      "markers": {
+        "red": -1,
+        "green": 1,
+        "logic": "AND"
+      },
+      "ability": null
+    },
+    {
+      "name": "Bored Goblin",
+      "fraction": "Highlanders",
+      "markers": {
+        "red": -2,
+        "green": 0,
+        "logic": "AND"
+      },
+      "ability": {
+        "action": "Condition",
+        "condition": "has_red_party"
+      }
+    },
+    {
+      "name": "Curious Cat Lover",
+      "fraction": "Highlanders",
+      "markers": {
+        "red": 1,
+        "green": 0,
+        "logic": "AND"
+      },
+      "ability": {
+        "action": "Draw",
+        "source": "other_hand",
+        "target": "Party",
+        "visibility": "face_down"
+      }
+    },
+    {
+      "name": "Warty Witch",
+      "fraction": "Highlanders",
+      "markers": {
+        "red": -1,
+        "green": -1,
+        "logic": "AND"
+      },
+      "ability": {
+        "action": "Swap",
+        "source": "hand",
+        "target": "Party_face_down"
+      }
+    },
+    {
+      "name": "Short-sighted Soldier",
+      "fraction": "Imperials",
+      "markers": {
+        "red": 1,
+        "green": -1,
+        "logic": "AND"
+      },
+      "ability": null
+    },
+    {
+      "name": "Doubtful Priest",
+      "fraction": "Imperials",
+      "markers": {
+        "red": 2,
+        "green": 0,
+        "logic": "OR_NEG_DECIDE_LEFT"
+      },
+      "ability": {
+        "action": "PlayExtra",
+        "filters": {
+          "not_fraction": "Imperials"
+        }
+      }
+    },
+    {
+      "name": "Underestimated Squire",
+      "fraction": "Imperials",
+      "markers": {
+        "red": 1,
+        "green": 0,
+        "logic": "AND"
+      },
+      "ability": {
+        "action": "Flip",
+        "target_player": "other",
+        "target_zone": "Party"
+      }
+    },
+    {
+      "name": "Flailing Knight",
+      "fraction": "Imperials",
+      "markers": {
+        "red": -1,
+        "green": -2,
+        "logic": "AND"
+      },
+      "ability": null
+    },
+    {
+      "name": "Underpaid Mercenary",
+      "fraction": "Imperials",
+      "markers": {
+        "red": 2,
+        "green": 0,
+        "logic": "AND"
+      },
+      "ability": {
+        "action": "Condition",
+        "condition": "no_red_in_tavern"
+      }
+    },
+    {
+      "name": "Heart Bending Bard",
+      "fraction": "Imperials",
+      "markers": {
+        "red": "X",
+        "green": 0,
+        "logic": "AND"
+      },
+      "ability": {
+        "action": "Calculation",
+        "x_source": "tavern_not_green"
+      }
+    },
+    {
+      "name": "Modest Monsterslayer",
+      "fraction": "Imperials",
+      "markers": {
+        "red": 1,
+        "green": 0,
+        "logic": "AND"
+      },
+      "ability": {
+        "action": "Draw",
+        "source": [
+          "Harbor",
+          "Tavern"
+        ],
+        "count": 3
+      }
+    },
+    {
+      "name": "Ace Fighter",
+      "fraction": "Imperials",
+      "markers": {
+        "red": 1,
+        "green": 0,
+        "logic": "OR",
+        "red_alt": 2
+      },
+      "ability": {
+        "action": "Condition",
+        "condition": "red_behind_green"
+      }
+    },
+    {
+      "name": "Battle Connoisseur",
+      "fraction": "Imperials",
+      "markers": {
+        "red": -1,
+        "green": 0,
+        "logic": "AND"
+      },
+      "ability": {
+        "action": "Draw",
+        "source": "Harbor",
+        "count": 2,
+        "distribution": {
+          "Party_face_down": 1,
+          "Wilderness": 1
+        }
+      }
+    },
+    {
+      "name": "Canned Cavalier",
+      "fraction": "Imperials",
+      "markers": {
+        "red": 0,
+        "green": 1,
+        "logic": "AND"
+      },
+      "ability": {
+        "action": "Kill",
+        "target_zone": "Party",
+        "visibility": "face_up",
+        "filters": {
+          "fraction": "Highlanders"
+        }
+      }
+    },
+    {
+      "name": "Whiskered Viking",
+      "fraction": "Imperials",
+      "markers": {
+        "red": 2,
+        "green": 0,
+        "logic": "AND"
+      },
+      "ability": {
+        "action": "Condition",
+        "condition": "has_face_down_undead"
+      }
+    },
+    {
+      "name": "Almost-evil Scholar",
+      "fraction": "Imperials",
+      "markers": {
+        "red": "-X",
+        "green": 0,
+        "logic": "AND"
+      },
+      "ability": {
+        "action": "Calculation",
+        "x_source": "target_face_up_green"
+      }
+    },
+    {
+      "name": "Well-aged Warrior",
+      "fraction": "Imperials",
+      "markers": {
+        "red": 1,
+        "green": 1,
+        "logic": "AND"
+      },
+      "ability": {
+        "action": "Place",
+        "source": "hand",
+        "target": "Party",
+        "visibility": "face_down"
+      }
+    },
+    {
+      "name": "Androgynous Assassin",
+      "fraction": "Imperials",
+      "markers": {
+        "red": -1,
+        "green": 1,
+        "logic": "OR"
+      },
+      "ability": {
+        "action": "Guess_Kill",
+        "target_player": "other",
+        "target_zone": "Party",
+        "visibility": "face_down"
+      }
+    },
+    {
+      "name": "Groggy Preacher",
+      "fraction": "Imperials",
+      "markers": {
+        "red": 1,
+        "green": -1,
+        "logic": "OR"
+      },
+      "ability": {
+        "action": "Look",
+        "target_player": "other",
+        "target_zone": "Party",
+        "count": 2,
+        "visibility": "face_down"
+      }
+    },
+    {
+      "name": "Queer Quartermaster",
+      "fraction": "Imperials",
+      "markers": {
+        "red": -1,
+        "green": -1,
+        "logic": "AND"
+      },
+      "ability": {
+        "action": "Swap",
+        "source": "face_up_party",
+        "target": "hand"
+      }
+    },
+    {
+      "name": "Angry Priestess",
+      "fraction": "Imperials",
+      "markers": {
+        "red": 0,
+        "green": -2,
+        "logic": "AND"
+      },
+      "ability": {
+        "action": "Condition",
+        "condition": "has_face_down_green"
+      }
+    },
+    {
+      "name": "Resilient Rearguard",
+      "fraction": "Imperials",
+      "markers": {
+        "red": 0,
+        "green": 1,
+        "logic": "AND"
+      },
+      "ability": {
+        "action": "Draw",
+        "source": "other_hand",
+        "target": "Party",
+        "visibility": "face_down"
+      }
+    },
+    {
+      "name": "Bony Target Practice",
+      "fraction": "Undead",
+      "markers": {
+        "red": 2,
+        "green": 2,
+        "logic": "AND_OR"
+      },
+      "ability": null
+    },
+    {
+      "name": "Unconfident Executioner",
+      "fraction": "Undead",
+      "markers": {
+        "red": -1,
+        "green": -1,
+        "logic": "AND"
+      },
+      "ability": {
+        "action": "Kill",
+        "target_zone": "Party",
+        "visibility": "face_down"
+      }
+    },
+    {
+      "name": "Ghastly Granny",
+      "fraction": "Undead",
+      "markers": {
+        "red": 0,
+        "green": 0,
+        "logic": "AND"
+      },
+      "ability": {
+        "action": "Perform",
+        "target_zone": "self_party",
+        "visibility": "face_down"
+      }
+    },
+    {
+      "name": "Apish Honorguard",
+      "fraction": "Undead",
+      "markers": {
+        "red": 2,
+        "green": 2,
+        "logic": "OR"
+      },
+      "ability": null
+    },
+    {
+      "name": "Half-headed Wizard",
+      "fraction": "Undead",
+      "markers": {
+        "red": 1,
+        "green": 1,
+        "logic": "AND"
+      },
+      "ability": {
+        "action": "Swap",
+        "source": "Tavern",
+        "target": "other_party_face_down"
+      }
+    },
+    {
+      "name": "Nightmarish Northman",
+      "fraction": "Undead",
+      "markers": {
+        "red": 2,
+        "green": 2,
+        "logic": "OR"
+      },
+      "ability": {
+        "action": "Kill_Dual",
+        "targets": [
+          "self_face_down",
+          "other_face_down"
+        ]
+      }
+    },
+    {
+      "name": "Half-eaten Bull",
+      "fraction": "Undead",
+      "markers": {
+        "red": 2,
+        "green": 1,
+        "logic": "AND"
+      },
+      "ability": {
+        "action": "Kill",
+        "target_zone": "Party",
+        "visibility": "face_up"
+      }
+    },
+    {
+      "name": "Gorgeous Gorgon",
+      "fraction": "Undead",
+      "markers": {
+        "red": -1,
+        "green": -1,
+        "logic": "OR"
+      },
+      "ability": {
+        "action": "Kill_Random",
+        "target_player": "other",
+        "target_zone": "Party",
+        "visibility": "face_down"
+      }
+    },
+    {
+      "name": "Raven Whisperer",
+      "fraction": "Undead",
+      "markers": {
+        "red": -1,
+        "green": -1,
+        "logic": "AND"
+      },
+      "ability": {
+        "action": "Draw",
+        "source": "Tavern",
+        "count": 2,
+        "distribution": {
+          "Party_face_down": 1,
+          "Wilderness": 1
+        }
+      }
+    },
+    {
+      "name": "Insidious Impaler",
+      "fraction": "Undead",
+      "markers": {
+        "red": 0,
+        "green": 0,
+        "logic": "AND"
+      },
+      "ability": {
+        "action": "Bury_Perform",
+        "source": "Tavern"
+      }
+    },
+    {
+      "name": "Well Instructed Mummy",
+      "fraction": "Undead",
+      "markers": {
+        "red": -1,
+        "green": -1,
+        "logic": "OR"
+      },
+      "ability": {
+        "action": "Place",
+        "source": "hand",
+        "target": "Party",
+        "visibility": "face_down"
+      }
+    },
+    {
+      "name": "Will-bending Witch",
+      "fraction": "Undead",
+      "markers": {
+        "red": 1,
+        "green": 1,
+        "logic": "OR"
+      },
+      "ability": {
+        "action": "Swap_Hand",
+        "target_player": "other"
+      }
+    },
+    {
+      "name": "Resurrected Ram",
+      "fraction": "Undead",
+      "markers": {
+        "red": 1,
+        "green": 1,
+        "logic": "AND"
+      },
+      "ability": {
+        "action": "Swap",
+        "source": "Tavern",
+        "target": "self_party_face_down"
+      }
+    },
+    {
+      "name": "Mummy Mystic",
+      "fraction": "Undead",
+      "markers": {
+        "red": 1,
+        "green": 2,
+        "logic": "AND"
+      },
+      "ability": {
+        "action": "Swap",
+        "source": "Graveyard_top",
+        "target": "self_party_face_down"
+      }
+    },
+    {
+      "name": "Notorious Necromancer",
+      "fraction": "Undead",
+      "markers": {
+        "red": "X",
+        "green": "X",
+        "logic": "AND"
+      },
+      "ability": {
+        "action": "Calculation",
+        "x_source": "graveyard_count"
+      }
+    },
+    {
+      "name": "Sun-shy Skeleton",
+      "fraction": "Undead",
+      "markers": {
+        "red": 0,
+        "green": 0,
+        "logic": "AND"
+      },
+      "ability": {
+        "action": "Perform_Top",
+        "source": "Graveyard"
+      }
+    },
+    {
+      "name": "Wrapped Warrior",
+      "fraction": "Undead",
+      "markers": {
+        "red": 1,
+        "green": 1,
+        "logic": "OR"
+      },
+      "ability": {
+        "action": "Draw",
+        "source": "Graveyard",
+        "count": 3
+      }
+    },
+    {
+      "name": "Sluggish Slimemonster",
+      "fraction": "Undead",
+      "markers": {
+        "red": -1,
+        "green": -1,
+        "logic": "OR"
+      },
+      "ability": {
+        "action": "Kill",
+        "target_zone": "Party",
+        "visibility": "face_down"
+      }
+    },
+    {
+      "name": "Pessimistic Whaleman",
+      "fraction": "Waterfolk",
+      "markers": {
+        "red": 1,
+        "green": 1,
+        "logic": "OR"
+      },
+      "ability": {
+        "action": "Draw",
+        "source": "Tavern",
+        "count": 2,
+        "distribution": {
+          "Party_face_down": 1,
+          "Wilderness": 1
+        }
+      }
+    },
+    {
+      "name": "Tentacled Oracle",
+      "fraction": "Waterfolk",
+      "markers": {
+        "red": -3,
+        "green": -3,
+        "logic": "AND"
+      },
+      "ability": {
+        "action": "Reveal_Harbor",
+        "count": 4,
+        "condition": "no_undead"
+      }
+    },
+    {
+      "name": "Drowned Deserter",
+      "fraction": "Waterfolk",
+      "markers": {
+        "red": 0,
+        "green": 0,
+        "logic": "LEADING_MARKER"
+      },
+      "ability": {
+        "action": "Move_Markers",
+        "options": [
+          "-1 leading",
+          "+2 behind"
+        ]
+      }
+    },
+    {
+      "name": "Deep Sea Squire",
+      "fraction": "Waterfolk",
+      "markers": {
+        "red": 1,
+        "green": 1,
+        "logic": "OR"
+      },
+      "ability": {
+        "action": "Draw_All_Tavern",
+        "distribution": {
+          "Party_face_down": 1,
+          "Wilderness": "rest"
+        }
+      }
+    },
+    {
+      "name": "Vegetarian Sharkguard",
+      "fraction": "Waterfolk",
+      "markers": {
+        "red": 1,
+        "green": 1,
+        "logic": "AND"
+      },
+      "ability": {
+        "action": "Bury",
+        "target_player": "other",
+        "target_zone": "Party",
+        "visibility": "face_down"
+      }
+    },
+    {
+      "name": "Double Shielded Turtle",
+      "fraction": "Waterfolk",
+      "markers": {
+        "red": "-X",
+        "green": "-X",
+        "logic": "OR"
+      },
+      "ability": {
+        "action": "Calculation",
+        "x_source": "target_face_up_blue"
+      }
+    },
+    {
+      "name": "Leery Lizard",
+      "fraction": "Waterfolk",
+      "markers": {
+        "red": -1,
+        "green": 0,
+        "logic": "OR",
+        "red_alt": -2
+      },
+      "ability": null
+    },
+    {
+      "name": "Furious Frog",
+      "fraction": "Waterfolk",
+      "markers": {
+        "red": -2,
+        "green": -2,
+        "logic": "AND_OR"
+      },
+      "ability": null
+    },
+    {
+      "name": "Apathetic Waterpriest",
+      "fraction": "Waterfolk",
+      "markers": {
+        "red": 0,
+        "green": -1,
+        "logic": "OR",
+        "green_alt": -2
+      },
+      "ability": null
+    },
+    {
+      "name": "Hopeful Salamander",
+      "fraction": "Waterfolk",
+      "markers": {
+        "red": 1,
+        "green": 1,
+        "logic": "AND"
+      },
+      "ability": {
+        "action": "Draw",
+        "source": "Tavern",
+        "count": 1,
+        "target": "Party",
+        "visibility": "face_down"
+      }
+    },
+    {
+      "name": "Fearsome Fishman",
+      "fraction": "Waterfolk",
+      "markers": {
+        "red": 0,
+        "green": 0,
+        "logic": "LEADING_MARKER"
+      },
+      "ability": {
+        "action": "Move_Markers",
+        "logic": "AND",
+        "effects": [
+          "-1 leading",
+          "+1 behind"
+        ]
+      }
+    },
+    {
+      "name": "Triple Sword Lizard",
+      "fraction": "Waterfolk",
+      "markers": {
+        "red": 0,
+        "green": 0,
+        "logic": "LEADING_MARKER"
+      },
+      "ability": {
+        "action": "Move_Markers",
+        "logic": "OR",
+        "effects": [
+          "-1 leading",
+          "-3 leading"
+        ]
+      }
+    },
+    {
+      "name": "Saltwater Sage",
+      "fraction": "Waterfolk",
+      "markers": {
+        "red": 0,
+        "green": 0,
+        "logic": "AND"
+      },
+      "ability": {
+        "action": "Perform_Self",
+        "target_zone": "Party",
+        "visibility": "face_down"
+      }
+    },
+    {
+      "name": "Minor Fishguard",
+      "fraction": "Waterfolk",
+      "markers": {
+        "red": -1,
+        "green": -1,
+        "logic": "OR"
+      },
+      "ability": {
+        "action": "Look",
+        "target_player": "other",
+        "target_zone": "Party",
+        "count": 2,
+        "visibility": "face_down"
+      }
+    },
+    {
+      "name": "Clamped Krill Guard",
+      "fraction": "Waterfolk",
+      "markers": {
+        "red": "-X",
+        "green": "-X",
+        "logic": "AND"
+      },
+      "ability": {
+        "action": "Calculation",
+        "x_source": "target_face_down_count"
+      }
+    },
+    {
+      "name": "Aimless Eel",
+      "fraction": "Waterfolk",
+      "markers": {
+        "red": 1,
+        "green": 1,
+        "logic": "OR"
+      },
+      "ability": {
+        "action": "Kill",
+        "target_zone": "Party",
+        "visibility": "face_up"
+      }
+    },
+    {
+      "name": "Bludgeoning Blowfish",
+      "fraction": "Waterfolk",
+      "markers": {
+        "red": 1,
+        "green": 0,
+        "logic": "OR",
+        "red_alt": -1
+      },
+      "ability": {
+        "action": "Flip_Or_Look",
+        "target_player": "other",
+        "target_zone": "Party",
+        "visibility": "face_down"
+      }
+    },
+    {
+      "name": "Voodoo Witch",
+      "fraction": "Waterfolk",
+      "markers": {
+        "red": -1,
+        "green": 1,
+        "logic": "OR"
+      },
+      "ability": {
+        "action": "Place",
+        "source": "hand",
+        "target": "Party",
+        "visibility": "face_down"
+      }
+    }
+  ]

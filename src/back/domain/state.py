@@ -37,6 +37,7 @@ class GameState(BaseModel):
     room_id: str = ""
     num_players: int = 0
     game_mode: str = "full"
+    creator_player_id: str | None = None  # first to join; transferred when they leave
     current_player_index: int = 0
     current_phase: TurnPhase = TurnPhase.WAITING_FOR_PLAYERS
     red_marker: int = 1

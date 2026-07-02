@@ -1,0 +1,455 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --bg: #08080a;
+    --bg-panel: #0e0e12;
+    --bg-hover: #141418;
+    --accent: #c9a227;
+    --accent-soft: rgba(201, 162, 39, 0.15);
+    --text: #e8e6e1;
+    --text-muted: #6b6760;
+    --border: rgba(255, 255, 255, 0.06);
+    --red: #b84a4a;
+    --green: #3d8f3d;
+    /* Game table & board (neo-skeuomorphism) */
+    --table-bg: #1a1814;
+    --board-cream: #fdf5e6;
+    --zone-label: #d4bc6a;
+    --glass-bg: rgba(14, 14, 18, 0.6);
+    --glass-border: rgba(255, 255, 255, 0.08);
+    /* Zone accents: harbor (draw deck), wilderness (discard), graveyard — readable on dark, game style */
+    --zone-harbor-bg: rgba(30, 74, 110, 0.28);
+    --zone-harbor-border: rgba(70, 120, 160, 0.45);
+    --zone-harbor-text: #b8d4f0;
+    --zone-wilderness-bg: rgba(80, 60, 30, 0.35);
+    --zone-wilderness-border: rgba(140, 110, 60, 0.5);
+    --zone-wilderness-text: #e8dcc4;
+    /* Graveyard — distinct from wilderness: cooler slate/violet, readable on dark */
+    --zone-graveyard-bg: rgba(55, 52, 70, 0.4);
+    --zone-graveyard-border: rgba(110, 100, 130, 0.5);
+    --zone-graveyard-text: #d0cce0;
+    --zone-graveyard-placeholder-bg: rgba(55, 52, 70, 0.45);
+    --zone-graveyard-placeholder-border: rgba(110, 100, 130, 0.55);
+    --zone-graveyard-placeholder-text: #d0cce0;
+  }
+
+  [data-theme="light"] {
+    --bg: #f5f3ef;
+    --bg-panel: #ebe8e2;
+    --bg-hover: #e0ddd6;
+    --accent: #a67c2e;
+    --accent-soft: rgba(166, 124, 46, 0.18);
+    --text: #1a1917;
+    --text-muted: #5c5852;
+    --border: rgba(0, 0, 0, 0.08);
+    --red: #b84a4a;
+    --green: #2d7a2d;
+    --table-bg: #e8e4dc;
+    --board-cream: #fdf9f0;
+    --zone-label: #1e4a6e;
+    --glass-bg: rgba(235, 232, 226, 0.85);
+    --glass-border: rgba(0, 0, 0, 0.08);
+    --zone-harbor-bg: rgba(30, 74, 110, 0.18);
+    --zone-harbor-border: rgba(30, 74, 110, 0.45);
+    --zone-harbor-text: #1e4a6e;
+    --zone-wilderness-bg: rgba(80, 60, 30, 0.2);
+    --zone-wilderness-border: rgba(100, 75, 40, 0.5);
+    --zone-wilderness-text: #5c4530;
+    --zone-graveyard-bg: rgba(70, 65, 85, 0.22);
+    --zone-graveyard-border: rgba(90, 85, 110, 0.5);
+    --zone-graveyard-text: #4a4558;
+    --zone-graveyard-placeholder-bg: rgba(70, 65, 85, 0.25);
+    --zone-graveyard-placeholder-border: rgba(90, 85, 110, 0.5);
+    --zone-graveyard-placeholder-text: #4a4558;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    font-family: var(--font-body), system-ui, sans-serif;
+  }
+
+  .page-bg {
+    background:
+      radial-gradient(ellipse 100% 60% at 50% -30%, rgba(201, 162, 39, 0.07), transparent 50%),
+      var(--bg);
+  }
+
+  .font-display {
+    font-family: var(--font-display), serif;
+  }
+
+  .board-label {
+    font-family: var(--font-board-label), "Comic Sans MS", cursive;
+    color: var(--zone-label);
+  }
+  .board-label.zone-header {
+    color: var(--zone-label);
+    font-weight: 600;
+  }
+  .glass-panel {
+    background: var(--glass-bg);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid var(--glass-border);
+    transition: border-color 0.25s ease, box-shadow 0.25s ease;
+  }
+  .glass-panel:hover {
+    border-color: rgba(30, 74, 110, 0.4);
+    box-shadow: 0 0 0 1px rgba(30, 74, 110, 0.15);
+  }
+
+  .card-fan-item:hover .card-fan-item-inner {
+    transform: var(--fan-hover, scale(1.15) translateY(-12px) rotate(0deg));
+  }
+  .card-fan-outer:hover {
+    z-index: 10;
+  }
+
+  .zone-harbor-panel {
+    background: var(--zone-harbor-bg);
+    border-color: var(--zone-harbor-border);
+  }
+  .zone-harbor-panel .board-label.zone-header,
+  .zone-harbor-text {
+    color: var(--zone-harbor-text);
+  }
+  .zone-wilderness-panel {
+    background: var(--zone-wilderness-bg);
+    border-color: var(--zone-wilderness-border);
+  }
+  .zone-wilderness-panel .board-label.zone-header,
+  .zone-wilderness-text {
+    color: var(--zone-wilderness-text);
+  }
+  .zone-graveyard-panel {
+    background: var(--zone-graveyard-bg);
+    border-color: var(--zone-graveyard-border);
+  }
+  .zone-graveyard-panel .board-label.zone-header,
+  .zone-graveyard-text {
+    color: var(--zone-graveyard-text);
+  }
+}
+
+@layer components {
+  .panel {
+    border: 1px solid var(--border);
+    border-radius: 1rem;
+    background: var(--bg-panel);
+    transition: border-color 0.25s ease, box-shadow 0.25s ease;
+  }
+  .panel:focus-within,
+  .panel:hover {
+    border-color: rgba(201, 162, 39, 0.2);
+    box-shadow: 0 0 0 1px rgba(201, 162, 39, 0.08);
+  }
+
+  .btn-main {
+    border-radius: 0.75rem;
+    font-weight: 500;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+    background: var(--accent);
+    color: var(--bg);
+    box-shadow: 0 2px 12px rgba(201, 162, 39, 0.25);
+  }
+  .btn-main:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 20px rgba(201, 162, 39, 0.35);
+  }
+  .btn-main:active:not(:disabled) {
+    transform: translateY(0);
+  }
+  .btn-main:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .btn-soft {
+    border-radius: 0.75rem;
+    font-weight: 500;
+    color: var(--text-muted);
+    background: transparent;
+    transition: color 0.2s ease, background 0.2s ease, transform 0.2s ease;
+  }
+  .btn-soft:hover {
+    color: var(--text);
+    background: var(--bg-hover);
+  }
+
+  .input-minimal {
+    width: 100%;
+    border-radius: 0.5rem;
+    padding: 0.75rem 1rem;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-size: 0.9375rem;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+  .input-minimal::placeholder {
+    color: var(--text-muted);
+  }
+  .input-minimal:hover {
+    border-color: rgba(255, 255, 255, 0.1);
+  }
+  .input-minimal:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+
+  .link-muted {
+    color: var(--text-muted);
+    font-size: 0.8125rem;
+    transition: color 0.2s ease;
+  }
+  .link-muted:hover {
+    color: var(--accent);
+  }
+
+  .rules-scroll {
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+  }
+  .rules-scroll::-webkit-scrollbar {
+    width: 5px;
+  }
+  .rules-scroll::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .rules-scroll::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 3px;
+  }
+  .rules-scroll::-webkit-scrollbar-thumb:hover {
+    background: var(--text-muted);
+  }
+
+  /* Rules sections: readable line length, card feel */
+  .rules-section-card {
+    border-left: 3px solid var(--accent);
+    border-radius: 0 0.5rem 0.5rem 0;
+    padding: 1rem 1.25rem 1rem 1rem;
+    background: rgba(255, 255, 255, 0.02);
+    max-width: 42rem;
+  }
+  .rules-body {
+    color: var(--text-muted);
+    font-size: 0.9375rem;
+    line-height: 1.65;
+  }
+  .rules-toc-link {
+    display: inline-block;
+    padding: 0.35rem 0.65rem;
+    border-radius: 0.5rem;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--text-muted);
+    transition: color 0.2s ease, background 0.2s ease;
+  }
+  .rules-toc-link:hover {
+    color: var(--accent);
+    background: var(--accent-soft);
+  }
+  .rules-toc-link.is-active {
+    color: var(--accent);
+    background: var(--accent-soft);
+  }
+  .rules-term {
+    color: var(--accent);
+    font-weight: 600;
+  }
+
+  /* Rules: horizontal pages (swipe / перегортання) */
+  .rules-pages {
+    display: flex;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-snap-type: x mandatory;
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .rules-pages::-webkit-scrollbar {
+    display: none;
+  }
+  .rules-page {
+    flex: 0 0 100%;
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
+    min-width: 0;
+  }
+}
+
+@layer utilities {
+  @keyframes toast-in {
+    from {
+      opacity: 0;
+      transform: translateX(100%);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+  .animate-toast-in {
+    animation: toast-in 0.3s ease-out forwards;
+  }
+
+  /* Game table: no block background, no inner scroll — main page scrolls */
+  .game-table-wrapper {
+    min-height: 0;
+    overflow: visible;
+  }
+
+  @keyframes war-area-pulse {
+    0%, 100% { box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.25); opacity: 1; }
+    50% { box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.45); opacity: 0.92; }
+  }
+  .war-area-pulse {
+    animation: war-area-pulse 2.5s ease-in-out infinite;
+  }
+
+  @keyframes tavern-breathe {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.02); opacity: 0.95; }
+  }
+  .tavern-breathe {
+    animation: tavern-breathe 2s ease-in-out infinite;
+  }
+
+  .graveyard-old-paper {
+    background: linear-gradient(135deg, rgba(210, 190, 160, 0.25) 0%, rgba(180, 165, 140, 0.2) 100%);
+    border-color: rgba(140, 120, 100, 0.4);
+    box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.08);
+  }
+  .graveyard-old-paper .board-label {
+    color: rgba(80, 70, 60, 0.95);
+  }
+  .graveyard-card-tint {
+    filter: sepia(0.12) contrast(0.98);
+  }
+  .graveyard-card-bg {
+    background: var(--zone-graveyard-bg);
+  }
+
+  .avatar-sketch {
+    background: var(--accent-soft);
+    color: var(--accent);
+    border-color: rgba(201, 162, 39, 0.35);
+  }
+  .avatar-state--turn {
+    box-shadow: 0 0 0 2px var(--accent);
+    border-color: var(--accent);
+  }
+  .avatar-state--winner {
+    background: rgba(61, 143, 61, 0.25);
+    color: var(--green);
+    border-color: var(--green);
+    box-shadow: 0 0 0 2px var(--green);
+  }
+  .avatar-state--ended {
+    opacity: 0.85;
+  }
+
+  .leader-peek-lifted {
+    transform: translateY(-4px) rotate(-3deg);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+  }
+
+  @keyframes marker-trail-out {
+    from { opacity: 0.7; transform: scale(1); }
+    to { opacity: 0; transform: scale(1.1); }
+  }
+  .marker-trail {
+    animation: marker-trail-out 0.5s ease-out forwards;
+    pointer-events: none;
+  }
+
+  /* 3D power track and markers */
+  .track-3d {
+    perspective: 800px;
+    transform-style: preserve-3d;
+  }
+  .track-3d-inner {
+    transform: rotateX(4deg);
+    transform-style: preserve-3d;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2), 0 2px 8px rgba(0, 0, 0, 0.1);
+    border-radius: 0.75rem;
+  }
+  .track-cell-3d {
+    transform-style: preserve-3d;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  }
+  .track-cell-3d:not(:last-child) {
+    border-right: 1px solid rgba(30, 74, 110, 0.25);
+  }
+  .marker-3d {
+    transform: translateZ(4px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35), 0 2px 4px rgba(0, 0, 0, 0.2), 0 1px 0 rgba(255, 255, 255, 0.25) inset !important;
+  }
+
+  /* Game table: grid and zones can shrink */
+  .game-table {
+    min-height: 0;
+  }
+  .game-table .zone-board {
+    min-height: 0;
+    overflow: visible;
+    position: relative;
+    z-index: 2;
+  }
+  .game-table .zone-top,
+  .game-table .zone-left,
+  .game-table .zone-right {
+    min-height: 0;
+    overflow: hidden;
+    position: relative;
+    z-index: 1;
+  }
+  .game-table .zone-bottom {
+    min-height: 200px;
+    overflow: visible;
+    position: relative;
+    z-index: 0;
+  }
+
+  /* Game table: on small screens stack vertically */
+  @media (max-width: 768px) {
+    .game-table {
+      grid-template-columns: 1fr !important;
+      grid-template-rows: auto auto auto auto auto !important;
+    }
+    .game-table .zone-top { grid-column: 1 !important; grid-row: 1 !important; }
+    .game-table .zone-left { grid-column: 1 !important; grid-row: 2 !important; }
+    .game-table .zone-board { grid-column: 1 !important; grid-row: 3 !important; }
+    .game-table .zone-right { grid-column: 1 !important; grid-row: 4 !important; }
+    .game-table .zone-bottom { grid-column: 1 !important; grid-row: 5 !important; }
+  }
+
+  /* Game field boundary: frame on the wrapper only (no extra layer to avoid tear) */
+  .game-table-wrapper {
+    box-shadow:
+      inset 0 0 0 1px rgba(201, 162, 39, 0.12),
+      0 0 20px rgba(0, 0, 0, 0.15);
+    animation: game-boundary-glow 4s ease-in-out infinite;
+  }
+}
+
+@keyframes game-boundary-glow {
+  0%, 100% {
+    box-shadow:
+      inset 0 0 0 1px rgba(201, 162, 39, 0.12),
+      0 0 20px rgba(0, 0, 0, 0.15);
+  }
+  50% {
+    box-shadow:
+      inset 0 0 0 1px rgba(201, 162, 39, 0.2),
+      0 0 24px rgba(0, 0, 0, 0.2);
+  }
+}
