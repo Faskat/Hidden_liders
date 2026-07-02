@@ -5,31 +5,12 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="a6a37fe6-e66a-4a31-91dc-379c3788cced" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/.gitignore" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/Pathetic_Lids.iml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/modules.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/modules.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/entities.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/game.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/back/app.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/back/app.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/back/command_handlers.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/back/command_handlers.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/back/data/cards.json" beforeDir="false" afterPath="$PROJECT_DIR$/src/back/data/cards.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/back/data/events.db" beforeDir="false" afterPath="$PROJECT_DIR$/src/back/data/events.db" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/back/domain/commands.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/back/domain/commands.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/back/domain/events.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/back/domain/events.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/back/domain/projection.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/back/domain/projection.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/back/domain/reducer.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/back/domain/reducer.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/back/domain/state.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/back/domain/state.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/back/session.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/back/session.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/back/setup.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/back/setup.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/back/tests/conftest.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/back/tests/conftest.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/back/tests/integration/test_flow_api.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/back/tests/integration/test_flow_api.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/back/tests/test_command_handlers.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/back/tests/test_command_handlers.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/back/tests/test_projection.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/back/tests/test_projection.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/back/tests/test_reducer.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/back/tests/test_reducer.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Hidden_liders-main.zip" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/back/entities.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/back/game.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/back/main.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/inspectionProfiles/profiles_settings.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -37,12 +18,19 @@
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
   <component name="Git.Settings">
+    <option name="PUSH_AUTO_UPDATE" value="true" />
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
-  <component name="ProjectColorInfo"><![CDATA[{
-  "customColor": "",
-  "associatedIndex": 6
+  <component name="GithubPullRequestsUISettings"><![CDATA[{
+  "selectedUrlAndAccountId": {
+    "url": "https://github.com/Faskat/Hidden_liders.git",
+    "accountId": "c6df1850-5aa5-4477-8ce6-e6b4e6e83f21"
+  }
 }]]></component>
+  <component name="ProjectColorInfo">{
+  &quot;customColor&quot;: &quot;&quot;,
+  &quot;associatedIndex&quot;: 6
+}</component>
   <component name="ProjectId" id="3FiVpLF9M5OLgyOY76rv2WmT0OL" />
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
@@ -52,7 +40,7 @@
   "keyToString": {
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.git.unshallow": "true",
-    "git-widget-placeholder": "main"
+    "git-widget-placeholder": "Merging main"
   }
 }]]></component>
   <component name="SharedIndexes">
