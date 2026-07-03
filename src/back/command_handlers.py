@@ -198,6 +198,8 @@ def handle_draw_from_tavern(state: GameState, cmd: DrawFromTavernCommand) -> lis
     ]
     if player and len(player.hand_card_ids) + 1 >= 4:
         events.append(("TurnPhaseChanged", TurnPhaseChanged(phase=TurnPhase.DISCARD.value).to_payload()))
+    else:
+        events.append(("TurnPhaseChanged", TurnPhaseChanged(phase=TurnPhase.REFILL_TAVERN.value).to_payload()))
     return events
 
 
@@ -226,6 +228,8 @@ def handle_draw_from_harbor(state: GameState, cmd: DrawFromHarborCommand) -> lis
     player = state.get_player(cmd.player_id)
     if player and len(player.hand_card_ids) + 1 >= 4:
         events.append(("TurnPhaseChanged", TurnPhaseChanged(phase=TurnPhase.DISCARD.value).to_payload()))
+    else:
+        events.append(("TurnPhaseChanged", TurnPhaseChanged(phase=TurnPhase.REFILL_TAVERN.value).to_payload()))
     return events
 
 
