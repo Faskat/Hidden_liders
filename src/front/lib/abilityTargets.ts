@@ -118,8 +118,11 @@ export function abilityNeedsTargetSelection(
     return false;
   }
 
-  // Move_Markers: need choice when options exist
-  if (action === "Move_Markers" && ability.options && ability.options.length > 1) return true;
+  // Move_Markers: need choice when alternatives exist (options, or effects with OR logic)
+  if (action === "Move_Markers") {
+    const mmChoices = ability.options ?? (ability.logic !== "AND" ? ability.effects : undefined);
+    if (mmChoices && mmChoices.length > 1) return true;
+  }
 
   // Calculation with X/-X markers: need target_player_id when x_source requires it
   const xSource = ability.x_source;
@@ -336,13 +339,16 @@ export function getAbilityTargetSteps(
     }
   }
 
-  // Move_Markers: option index
-  if (ability && action === "Move_Markers" && ability.options && ability.options.length > 1) {
-    steps.push({
-      type: "move_markers_option",
-      label: "Оберіть варіант ефекту",
-      options: ability.options,
-    });
+  // Move_Markers: option index (options, or effects with OR logic — both are alternatives the player picks)
+  if (ability && action === "Move_Markers") {
+    const mmChoices = ability.options ?? (ability.logic !== "AND" ? ability.effects : undefined);
+    if (mmChoices && mmChoices.length > 1) {
+      steps.push({
+        type: "move_markers_option",
+        label: "Оберіть варіант ефекту",
+        options: mmChoices,
+      });
+    }
   }
 
   // Marker choice: OR / OR_NEG / AND_OR
