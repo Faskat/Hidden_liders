@@ -242,29 +242,41 @@ def execute_ability(
         red_d, green_d = 0, 0
         if options:
             choice_idx = targets.get("move_markers_option", 0)
-            if 0 <= choice_idx < len(options):
-                parsed = _parse_move_effect(options[choice_idx])
-                if parsed:
-                    delta, kind = parsed
-                    if kind == "leading":
-                        red_d, green_d = _leading_behind_deltas(state, delta, 0)
-                    else:
-                        red_d, green_d = _leading_behind_deltas(state, 0, delta)
+            if not (isinstance(choice_idx, int) and 0 <= choice_idx < len(options)):
+                choice_idx = 0
+            parsed = _parse_move_effect(options[choice_idx])
+            if parsed:
+                delta, kind = parsed
+                if kind == "leading":
+                    red_d, green_d = _leading_behind_deltas(state, delta, 0)
+                else:
+                    red_d, green_d = _leading_behind_deltas(state, 0, delta)
         elif effects:
-            for eff in effects:
-                parsed = _parse_move_effect(eff)
+            if logic == "AND":
+                for eff in effects:
+                    parsed = _parse_move_effect(eff)
+                    if parsed:
+                        d, kind = parsed
+                        if kind == "leading":
+                            rd, gd = _leading_behind_deltas(state, d, 0)
+                        else:
+                            rd, gd = _leading_behind_deltas(state, 0, d)
+                        red_d += rd
+                        green_d += gd
+            else:
+                # OR: effects are alternatives — honour the player's choice, same as `options`
+                # (e.g. Triple Sword Lizard "-1 leading / -3 leading"; previously the first
+                # effect was always applied and the choice was silently ignored)
+                choice_idx = targets.get("move_markers_option", 0)
+                if not (isinstance(choice_idx, int) and 0 <= choice_idx < len(effects)):
+                    choice_idx = 0
+                parsed = _parse_move_effect(effects[choice_idx])
                 if parsed:
                     d, kind = parsed
                     if kind == "leading":
-                        rd, gd = _leading_behind_deltas(state, d, 0)
+                        red_d, green_d = _leading_behind_deltas(state, d, 0)
                     else:
-                        rd, gd = _leading_behind_deltas(state, 0, d)
-                    if logic == "AND":
-                        red_d += rd
-                        green_d += gd
-                    else:
-                        red_d, green_d = rd, gd
-                        break
+                        red_d, green_d = _leading_behind_deltas(state, 0, d)
         if red_d or green_d:
             events.append(("MarkerMoved", MarkerMoved(red_delta=red_d, green_delta=green_d).to_payload()))
         return events
