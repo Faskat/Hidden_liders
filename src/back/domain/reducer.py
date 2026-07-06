@@ -115,16 +115,32 @@ def apply_event(state: GameState, event_type: str, payload: dict) -> GameState:
         pid = getattr(ev, "player_id", "")
         card_id = getattr(ev, "card_id", "")
         source = getattr(ev, "source", "harbor")
-        for p in s.players:
-            if p.player_id == pid:
-                p.hand_card_ids.append(card_id)
-                break
-        if source == "harbor" and s.harbor and s.harbor[0] == card_id:
-            s.harbor = s.harbor[1:]
+        # Remove from the claimed source first; only add to hand if actually found there,
+        # otherwise a stale/mismatched card_id would duplicate the card across zones.
+        removed = False
+        if source == "harbor":
+            if card_id in s.harbor:
+                harbor = list(s.harbor)
+                harbor.remove(card_id)
+                s.harbor = harbor
+                removed = True
         elif source == "tavern":
             slot = getattr(ev, "tavern_slot", None)
             if slot is not None and 0 <= slot < len(s.tavern) and s.tavern[slot] == card_id:
                 s.tavern[slot] = None
+                removed = True
+            else:
+                for i, cid in enumerate(s.tavern):
+                    if cid == card_id:
+                        s.tavern[i] = None
+                        removed = True
+                        break
+        if not removed:
+            return s
+        for p in s.players:
+            if p.player_id == pid:
+                p.hand_card_ids.append(card_id)
+                break
         return s
 
     if event_type == "HeroPutFaceDown":
@@ -218,18 +234,26 @@ def apply_event(state: GameState, event_type: str, payload: dict) -> GameState:
         to_graveyard = getattr(ev, "to_graveyard", True)
         if to_graveyard is not True and to_graveyard is not False:
             to_graveyard = True  # normalize 0/None/other to graveyard
+        removed = False
         for p in s.players:
             if p.player_id == pid:
                 for ref in list(p.open_heroes):
                     if ref.card_id == card_id:
                         p.open_heroes.remove(ref)
+                        removed = True
                         break
-                else:
+                if not removed:
                     for ref in list(p.hidden_heroes):
                         if ref.card_id == card_id:
                             p.hidden_heroes.remove(ref)
+                            removed = True
                             break
                 break
+        # Only materialize the card in graveyard/wilderness if it was actually found and
+        # removed from the target's party; otherwise a stale/mismatched card_id would
+        # duplicate the card instead of moving it.
+        if not removed:
+            return s
         if to_graveyard is False:
             s.wilderness.append(card_id)
         else:
@@ -254,33 +278,48 @@ def apply_event(state: GameState, event_type: str, payload: dict) -> GameState:
         slot_from = getattr(ev, "tavern_slot_from", None)
         slot_to = getattr(ev, "tavern_slot_to", None)
 
-        def remove_from_zone():
+        def remove_from_zone() -> bool:
+            """Remove card_id from from_zone; return True iff it was actually found there.
+            Callers must not add the card to its destination when this returns False,
+            otherwise a stale/mismatched card_id would duplicate the card across zones."""
             if from_zone == "hand" and from_pid:
                 for p in s.players:
                     if p.player_id == from_pid and card_id in p.hand_card_ids:
                         p.hand_card_ids.remove(card_id)
-                        return
+                        return True
+                return False
             if from_zone == "party_open" and from_pid:
                 for p in s.players:
                     if p.player_id == from_pid:
                         for ref in list(p.open_heroes):
                             if ref.card_id == card_id:
                                 p.open_heroes.remove(ref)
-                                return
+                                return True
+                return False
             if from_zone == "party_hidden" and from_pid:
                 for p in s.players:
                     if p.player_id == from_pid:
                         for ref in list(p.hidden_heroes):
                             if ref.card_id == card_id:
                                 p.hidden_heroes.remove(ref)
-                                return
+                                return True
+                return False
             if from_zone.startswith("tavern_") and slot_from is not None and 0 <= slot_from < len(s.tavern):
                 if s.tavern[slot_from] == card_id:
                     s.tavern[slot_from] = None
-            if from_zone == "harbor" and s.harbor and card_id in s.harbor:
-                s.harbor = [c for c in s.harbor if c != card_id]
-            if from_zone == "graveyard" and s.graveyard and card_id in s.graveyard:
-                s.graveyard = [c for c in s.graveyard if c != card_id]
+                    return True
+                return False
+            if from_zone == "harbor":
+                if s.harbor and card_id in s.harbor:
+                    s.harbor = [c for c in s.harbor if c != card_id]
+                    return True
+                return False
+            if from_zone == "graveyard":
+                if s.graveyard and card_id in s.graveyard:
+                    s.graveyard = [c for c in s.graveyard if c != card_id]
+                    return True
+                return False
+            return False
 
         def add_to_zone():
             if to_zone == "hand" and to_pid:
@@ -307,8 +346,8 @@ def apply_event(state: GameState, event_type: str, payload: dict) -> GameState:
             if to_zone == "wilderness":
                 s.wilderness.append(card_id)
 
-        remove_from_zone()
-        add_to_zone()
+        if remove_from_zone():
+            add_to_zone()
         return s
 
     if event_type == "HeroFlippedFaceDown":

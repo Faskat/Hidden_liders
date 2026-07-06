@@ -117,6 +117,11 @@ def handle_play_card(state: GameState, cmd: PlayCardCommand) -> list[tuple[str, 
     # Execute ability if present and condition (if any) is satisfied; skip Place when we already played face down
     run_ability = ability and ability.get("action") != "Place" and condition_met
     if run_ability:
+        # Ability execution runs against this pre-CardPlayed state, so the played card is
+        # still nominally in the actor's hand. Thread the root card id through (also across
+        # nested Perform/Perform_Top/Bury_Perform execution) so abilities.py never mistakes
+        # the card being played for a valid target drawn from "the actor's hand".
+        targets["_root_card_id"] = cmd.card_id
         try:
             ability_events = abilities_module.execute_ability(
                 state, cmd.card_id, ability, cmd.player_id, targets
