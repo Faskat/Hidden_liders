@@ -930,6 +930,17 @@ export default function RoomPage() {
       ? s.players
       : [...s.players.slice(meIndex), ...s.players.slice(0, meIndex)];
 
+  // Зіграні карти: всі відкриті та приховані герої у партіях гравців
+  const playedCardsCount = s.players.reduce((sum, p) => {
+    const open = p.open_heroes.filter((h) => typeof h === "object" && h !== null && "card_id" in h).length;
+    const hiddenFirst = Array.isArray(p.hidden_heroes) ? p.hidden_heroes[0] : null;
+    const hidden =
+      hiddenFirst && typeof hiddenFirst === "object" && "count" in hiddenFirst
+        ? (hiddenFirst as { count: number }).count
+        : (p.hidden_heroes?.length ?? 0);
+    return sum + open + hidden;
+  }, 0);
+
   const cardPreview = hoveredCard ? getCardById(hoveredCard.cardId, s.cards) : null;
   const showInfluence = hoveredCard && !hoveredCard.isPlayed && cardPreview && !cardPreview.hasMarkersOnly;
   const previewRed =
@@ -949,7 +960,7 @@ export default function RoomPage() {
         <header className="shrink-0 space-y-1 flex-shrink-0">
           <div className="flex flex-wrap items-center gap-2 sm:gap-3 py-1.5">
             <PhaseBar state={s} myPlayerId={myPlayerId} />
-            <CurrentVictor redMarker={s.red_marker} greenMarker={s.green_marker} compact />
+            <CurrentVictor redMarker={s.red_marker} greenMarker={s.green_marker} compact playedCount={playedCardsCount} />
             <div className="flex items-center gap-2 ml-auto">
               <div className="relative z-[9999] flex items-center gap-2">
                 <button
