@@ -93,6 +93,8 @@ export interface GameStateView {
   current_player_id: string | null;
   red_marker: number;
   green_marker: number;
+  /** Ліміт гравців кімнати (num_players при створенні). */
+  num_players?: number;
   players: PlayerView[];
   tavern: ({ card_id: string; faction?: string; name?: string } | null)[];
   harbor_count: number;

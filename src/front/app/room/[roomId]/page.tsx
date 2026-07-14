@@ -669,7 +669,7 @@ export default function RoomPage() {
 
           <div>
             <h3 className="text-[var(--text-muted)] text-xs font-medium uppercase tracking-wider mb-3">
-              Гравці ({s.players.length})
+              Гравці ({s.players.length}{s.num_players ? `/${s.num_players}` : ""})
             </h3>
             <ul className="space-y-3">
               {s.players.map((p, i) => {

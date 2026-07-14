@@ -87,6 +87,7 @@ def project_state_for_player(state: GameState, player_id: str) -> dict[str, Any]
         ),
         "red_marker": state.red_marker,
         "green_marker": state.green_marker,
+        "num_players": state.num_players,
         "players": players_view,
         "tavern": tavern_view,
         "harbor_count": len(state.harbor),
