@@ -995,10 +995,10 @@ export default function RoomPage() {
           </div>
         </header>
 
-        {/* Centered big card preview when hovering over another player's card */}
+        {/* Big card preview when hovering over a card: shown at the left edge so it never covers the tavern sidebar */}
         {hoveredCard && cardPreview && (
           <div
-            className="fixed inset-0 z-40 flex items-center justify-center pointer-events-none"
+            className="fixed inset-0 z-40 flex items-center justify-start pl-6 sm:pl-10 pointer-events-none"
             aria-hidden
           >
             <div className="bg-black/50 rounded-2xl p-4 shadow-2xl pointer-events-none">
