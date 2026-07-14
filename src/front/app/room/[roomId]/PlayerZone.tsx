@@ -38,7 +38,7 @@ function getOwnHiddenCardIds(p: PlayerView): string[] {
   const ids = p.hidden_heroes
     .filter((x): x is { card_id: string } => typeof x === "object" && x !== null && "card_id" in x)
     .map((x) => x.card_id);
-  return [...new Set(ids)];
+  return Array.from(new Set(ids));
 }
 
 const POSITION_ROTATION: Record<string, string> = {
