@@ -777,159 +777,23 @@ export default function RoomPage() {
     );
   }
 
-  if (s.game_ended && !hideGameOverScreen) {
-    const winnerPlayer = s.winner_player_id
-      ? s.players.find((p) => p.player_id === s.winner_player_id)
-      : null;
-    return (
-      <main className="min-h-screen flex flex-col justify-center px-5 sm:px-8 py-14">
-        <div className="w-full max-w-lg mx-auto space-y-8">
-          <h2 className="font-display text-3xl sm:text-4xl font-semibold text-[var(--accent)] animate-title-glow text-center">
-            Кінець гри
-          </h2>
-          <div className="panel rounded-2xl px-6 py-6 space-y-4">
-            <div className="text-center space-y-1">
-              <p className="text-[var(--text-muted)] text-xs uppercase tracking-wider font-semibold">
-                Переможець
-              </p>
-              <p className="text-[var(--text)] font-medium text-xl">
-                {s.winner_faction ?? "—"}
-              </p>
-              {winnerPlayer && (
-                <p className="text-[var(--accent)] font-display text-lg">
-                  {winnerPlayer.name}
-                </p>
-              )}
-            </div>
-            <div className="border-t border-[var(--border)] pt-4">
-              <p className="text-[var(--text-muted)] text-sm text-center">
-                Фінальні маркери: <span className="text-[var(--red)] font-medium">{s.red_marker}</span>
-                {" · "}
-                <span className="text-[var(--green)] font-medium">{s.green_marker}</span>
-              </p>
-            </div>
-            {s.players.length > 0 && (
-              <ul className="space-y-2 pt-2">
-                {s.players.map((p) => {
-                  const factions = [p.leader?.fraction_1, p.leader?.fraction_2].filter(
-                    (f, i, arr): f is string => Boolean(f) && arr.indexOf(f) === i
-                  );
-                  return (
-                    <li
-                      key={p.player_id}
-                      className={`flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm ${p.player_id === s.winner_player_id ? "bg-[var(--accent-soft)] text-[var(--accent)] font-medium" : "bg-[var(--bg-hover)]/50 text-[var(--text-muted)]"}`}
-                    >
-                      <span className="flex items-center gap-2 flex-wrap min-w-0">
-                        <span className="truncate">{p.name}</span>
-                        {factions.map((f) => (
-                          <span key={f} className={`text-[10px] px-1.5 py-0.5 rounded border shrink-0 ${FACTION_STYLE[f] ?? ""}`}>
-                            {FACTION_LABEL[f] ?? f}
-                          </span>
-                        ))}
-                      </span>
-                      {p.player_id === s.winner_player_id && <span className="text-xs shrink-0">Переможець</span>}
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </div>
-          <div className="flex flex-col sm:flex-row gap-3">
-            <button
-              type="button"
-              onClick={() => setHideGameOverScreen(true)}
-              className="btn-soft flex-1 py-3.5 px-5 text-sm rounded-xl font-semibold"
-            >
-              Повернутися в кімнату
-            </button>
-            <button
-              type="button"
-              onClick={() => router.push("/")}
-              className="btn-main flex-1 py-3.5 px-5 text-sm rounded-xl font-semibold"
-            >
-              На головну
-            </button>
-          </div>
-        </div>
-      </main>
-    );
-  }
+  const handleBackToLobby = async () => {
+    if (!token) return;
+    setLoading(true);
+    try {
+      const data = await backToLobby(roomId, token);
+      setState(data.state);
+      setHideGameOverScreen(false);
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : "Не вдалося повернутися в лобі");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  if (s.game_ended && hideGameOverScreen) {
-    const handleBackToLobby = async () => {
-      if (!token) return;
-      setLoading(true);
-      try {
-        const data = await backToLobby(roomId, token);
-        setState(data.state);
-        setHideGameOverScreen(false);
-      } catch (e) {
-        showToast(e instanceof Error ? e.message : "Не вдалося повернутися в лобі");
-      } finally {
-        setLoading(false);
-      }
-    };
-    return (
-      <main className="min-h-screen flex flex-col justify-center px-5 sm:px-8 py-14">
-        <div className="w-full max-w-lg mx-auto space-y-8">
-          <div className="text-center sm:text-left">
-            <h2 className="font-display text-3xl sm:text-4xl font-semibold text-[var(--accent)] animate-title-glow">
-              Кімната
-            </h2>
-            <p className="mt-2 text-[var(--text-muted)] text-sm uppercase tracking-wide">
-              Гра завершена. Можна почати нову.
-            </p>
-          </div>
-          <div className="panel rounded-2xl px-6 py-5 border border-[var(--accent)]/20">
-            <p className="text-[var(--text-muted)] text-xs font-medium uppercase tracking-wider mb-3">
-              Код кімнати
-            </p>
-            <code
-              className="text-2xl font-mono font-semibold tracking-[0.2em] text-[var(--accent)] block"
-              title={roomId}
-            >
-              {roomId}
-            </code>
-          </div>
-          <div>
-            <h3 className="text-[var(--text-muted)] text-xs font-medium uppercase tracking-wider mb-3">
-              Гравці ({s.players.length})
-            </h3>
-            <ul className="space-y-2">
-              {s.players.map((p) => (
-                <li
-                  key={p.player_id}
-                  className="panel rounded-xl px-4 py-3 flex items-center gap-3"
-                >
-                  <span className="w-9 h-9 rounded-full flex items-center justify-center text-[var(--accent)] font-display font-semibold shrink-0 bg-[var(--accent-soft)]">
-                    {p.name.trim().slice(0, 1).toUpperCase() || "?"}
-                  </span>
-                  <span className="font-medium text-[var(--text)] truncate">{p.name}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-          <div className="flex flex-col sm:flex-row gap-3">
-            <button
-              type="button"
-              onClick={handleBackToLobby}
-              disabled={loading}
-              className="btn-main flex-1 py-3.5 px-5 text-base font-semibold rounded-xl"
-            >
-              {loading ? "Повертаємо…" : "Почати гру ще раз"}
-            </button>
-            <button
-              type="button"
-              onClick={() => router.push("/")}
-              className="btn-soft flex-1 py-3.5 px-5 text-base font-semibold rounded-xl"
-            >
-              На головну
-            </button>
-          </div>
-        </div>
-      </main>
-    );
-  }
+  const winnerPlayer = s.winner_player_id
+    ? s.players.find((p) => p.player_id === s.winner_player_id)
+    : null;
 
   const hand = me?.hand_card_ids || [];
   const phase = s.current_phase;
@@ -1329,6 +1193,95 @@ export default function RoomPage() {
             onConfirm={handlePlayCardWithTargets}
             onCancel={() => setPendingPlayCardId(null)}
           />
+        )}
+        {/* Кінець гри: спливаюче вікно поверх ігрового стола (а не окрема сторінка) */}
+        {s.game_ended && !hideGameOverScreen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
+            <div className="panel rounded-2xl px-6 py-6 max-w-lg w-full space-y-4 shadow-2xl max-h-[90dvh] overflow-y-auto">
+              <h2 className="font-display text-2xl sm:text-3xl font-semibold text-[var(--accent)] animate-title-glow text-center">
+                {s.winner_faction ? "Кінець гри" : "Нічия"}
+              </h2>
+              <div className="text-center space-y-1">
+                <p className="text-[var(--text-muted)] text-xs uppercase tracking-wider font-semibold">
+                  Переможець
+                </p>
+                <p className="text-[var(--text)] font-medium text-xl">
+                  {s.winner_faction ? (FACTION_LABEL[s.winner_faction] ?? s.winner_faction) : "—"}
+                </p>
+                {winnerPlayer && (
+                  <p className="text-[var(--accent)] font-display text-lg">
+                    {winnerPlayer.name}
+                  </p>
+                )}
+              </div>
+              <div className="border-t border-[var(--border)] pt-3">
+                <p className="text-[var(--text-muted)] text-sm text-center">
+                  Фінальні маркери: <span className="text-[var(--red)] font-medium">{s.red_marker}</span>
+                  {" · "}
+                  <span className="text-[var(--green)] font-medium">{s.green_marker}</span>
+                </p>
+              </div>
+              {s.players.length > 0 && (
+                <ul className="space-y-2">
+                  {s.players.map((p) => {
+                    const factions = [p.leader?.fraction_1, p.leader?.fraction_2].filter(
+                      (f, i, arr): f is string => Boolean(f) && arr.indexOf(f) === i
+                    );
+                    return (
+                      <li
+                        key={p.player_id}
+                        className={`flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm ${p.player_id === s.winner_player_id ? "bg-[var(--accent-soft)] text-[var(--accent)] font-medium" : "bg-[var(--bg-hover)]/50 text-[var(--text-muted)]"}`}
+                      >
+                        <span className="flex items-center gap-2 flex-wrap min-w-0">
+                          <span className="truncate">{p.name}</span>
+                          {factions.map((f) => (
+                            <span key={f} className={`text-[10px] px-1.5 py-0.5 rounded border shrink-0 ${FACTION_STYLE[f] ?? ""}`}>
+                              {FACTION_LABEL[f] ?? f}
+                            </span>
+                          ))}
+                        </span>
+                        {p.player_id === s.winner_player_id && <span className="text-xs shrink-0">Переможець</span>}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+              <div className="flex flex-col sm:flex-row gap-3 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setHideGameOverScreen(true)}
+                  className="btn-soft flex-1 py-3 px-4 text-sm rounded-xl font-semibold"
+                >
+                  Переглянути стіл
+                </button>
+                <button
+                  type="button"
+                  onClick={handleBackToLobby}
+                  disabled={loading}
+                  className="btn-main flex-1 py-3 px-4 text-sm rounded-xl font-semibold"
+                >
+                  {loading ? "Повертаємо…" : "Почати гру ще раз"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => router.push("/")}
+                  className="btn-soft flex-1 py-3 px-4 text-sm rounded-xl font-semibold"
+                >
+                  На головну
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        {/* Модалку закрито — плаваюча кнопка, щоб відкрити результати знову */}
+        {s.game_ended && hideGameOverScreen && (
+          <button
+            type="button"
+            onClick={() => setHideGameOverScreen(false)}
+            className="btn-main fixed bottom-4 left-4 z-50 py-2.5 px-4 text-sm rounded-xl font-semibold shadow-lg"
+          >
+            Результати
+          </button>
         )}
       </CardsCatalogProvider>
       <RulesModal isOpen={rulesOpen} onClose={() => setRulesOpen(false)} />
