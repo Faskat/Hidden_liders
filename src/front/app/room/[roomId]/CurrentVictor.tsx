@@ -1,13 +1,6 @@
 "use client";
 
-import { getWinningFaction, WIN_CONDITIONS } from "./constants";
-
-const FACTION_LABEL: Record<string, string> = {
-  Undead: "Невмерлі",
-  Waterfolk: "Водний народ",
-  Imperials: "Імперія",
-  Highlanders: "Племена",
-};
+import { getWinningFaction, WIN_CONDITIONS, FACTION_LABEL } from "./constants";
 
 export function CurrentVictor({
   redMarker,

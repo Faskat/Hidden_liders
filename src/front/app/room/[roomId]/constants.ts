@@ -5,6 +5,22 @@ export const PHASE_STEPS = [
   { key: "REFILL_TAVERN", label: "Поповнити таверну", description: "Заповніть порожні слоти таверни з колоди." },
 ];
 
+/** Локалізовані назви фракцій. */
+export const FACTION_LABEL: Record<string, string> = {
+  Undead: "Невмерлі",
+  Waterfolk: "Водний народ",
+  Imperials: "Імперія",
+  Highlanders: "Племена",
+};
+
+/** Кольорові стилі бейджів фракцій (Tailwind-класи). */
+export const FACTION_STYLE: Record<string, string> = {
+  Imperials: "bg-[var(--red)]/20 text-[var(--red)] border-[var(--red)]/40",
+  Highlanders: "bg-[var(--green)]/20 text-[var(--green)] border-[var(--green)]/40",
+  Waterfolk: "bg-blue-500/20 text-blue-400 border-blue-500/40",
+  Undead: "bg-[#2d2d2d] text-gray-300 border-gray-500/40",
+};
+
 export const WIN_CONDITIONS = [
   { faction: "Undead", condition: "Обидва маркери на 9–12" },
   { faction: "Waterfolk", condition: "|R−G| ≤ 1" },

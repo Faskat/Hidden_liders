@@ -6,14 +6,7 @@ import type { PlayerView, LeaderView } from "@/lib/types";
 import { useCardsCatalog } from "@/app/contexts/CardsCatalogContext";
 import { GameCard } from "./Card";
 import { CardFan, type FanDirection } from "./CardFan";
-import { getHeroLimit } from "./constants";
-
-const FACTION_STYLE: Record<string, string> = {
-  Imperials: "bg-[var(--red)]/20 text-[var(--red)] border-[var(--red)]/40",
-  Highlanders: "bg-[var(--green)]/20 text-[var(--green)] border-[var(--green)]/40",
-  Waterfolk: "bg-blue-500/20 text-blue-400 border-blue-500/40",
-  Undead: "bg-[#2d2d2d] text-gray-300 border-gray-500/40",
-};
+import { getHeroLimit, FACTION_STYLE } from "./constants";
 
 function isHeroRef(
   x: PlayerView["open_heroes"][number]
