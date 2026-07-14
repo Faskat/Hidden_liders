@@ -24,7 +24,7 @@ import { CentralBoard } from "./CentralBoard";
 import { PlayerZone } from "./PlayerZone";
 import { CurrentVictor } from "./CurrentVictor";
 import { GameCard } from "./Card";
-import { PHASE_STEPS } from "./constants";
+import { PHASE_STEPS, FACTION_LABEL, FACTION_STYLE } from "./constants";
 import { getCardById } from "@/lib/cards";
 import { abilityNeedsTargetSelection } from "@/lib/abilityTargets";
 import type { PlayCardTargets } from "@/lib/types";
@@ -810,15 +810,27 @@ export default function RoomPage() {
             </div>
             {s.players.length > 0 && (
               <ul className="space-y-2 pt-2">
-                {s.players.map((p) => (
-                  <li
-                    key={p.player_id}
-                    className={`flex items-center justify-between rounded-lg px-3 py-2 text-sm ${p.player_id === s.winner_player_id ? "bg-[var(--accent-soft)] text-[var(--accent)] font-medium" : "bg-[var(--bg-hover)]/50 text-[var(--text-muted)]"}`}
-                  >
-                    <span>{p.name}</span>
-                    {p.player_id === s.winner_player_id && <span className="text-xs">Переможець</span>}
-                  </li>
-                ))}
+                {s.players.map((p) => {
+                  const factions = [p.leader?.fraction_1, p.leader?.fraction_2].filter(
+                    (f, i, arr): f is string => Boolean(f) && arr.indexOf(f) === i
+                  );
+                  return (
+                    <li
+                      key={p.player_id}
+                      className={`flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm ${p.player_id === s.winner_player_id ? "bg-[var(--accent-soft)] text-[var(--accent)] font-medium" : "bg-[var(--bg-hover)]/50 text-[var(--text-muted)]"}`}
+                    >
+                      <span className="flex items-center gap-2 flex-wrap min-w-0">
+                        <span className="truncate">{p.name}</span>
+                        {factions.map((f) => (
+                          <span key={f} className={`text-[10px] px-1.5 py-0.5 rounded border shrink-0 ${FACTION_STYLE[f] ?? ""}`}>
+                            {FACTION_LABEL[f] ?? f}
+                          </span>
+                        ))}
+                      </span>
+                      {p.player_id === s.winner_player_id && <span className="text-xs shrink-0">Переможець</span>}
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </div>
