@@ -22,7 +22,13 @@ function isHeroRef(
 }
 
 function getOpenHeroes(p: PlayerView): { card_id: string; faction?: string; name?: string }[] {
-  return p.open_heroes.filter(isHeroRef);
+  // Страховка від дублікатів: той самий card_id не малюємо двічі
+  const seen = new Set<string>();
+  return p.open_heroes.filter(isHeroRef).filter((h) => {
+    if (seen.has(h.card_id)) return false;
+    seen.add(h.card_id);
+    return true;
+  });
 }
 
 function getHiddenCount(p: PlayerView): number {
@@ -36,9 +42,10 @@ function getHiddenCount(p: PlayerView): number {
 /** For own player: hidden_heroes are full refs with card_id. Return list of card_ids. */
 function getOwnHiddenCardIds(p: PlayerView): string[] {
   if (!Array.isArray(p.hidden_heroes)) return [];
-  return p.hidden_heroes
+  const ids = p.hidden_heroes
     .filter((x): x is { card_id: string } => typeof x === "object" && x !== null && "card_id" in x)
     .map((x) => x.card_id);
+  return [...new Set(ids)];
 }
 
 const POSITION_ROTATION: Record<string, string> = {
