@@ -179,6 +179,8 @@ export default function Home() {
             </div>
           )}
 
+      
+
           {mode === "join" && (
             <div className="space-y-4 opacity-0 animate-slide-in" style={{ animationFillMode: "forwards" }}>
               <div>
@@ -188,8 +190,18 @@ export default function Home() {
                 <input
                   type="text"
                   value={roomId}
-                  onChange={(e) => setRoomId(e.target.value)}
+                  onChange={(e) => {
+                    const digits = e.target.value.replace(/\D/g, "").slice(0, 4);
+                    // Прибираємо невалідні символи і з DOM: інакше React не перезапише
+                    // значення, коли state не змінився, і сміття лишиться в полі.
+                    e.target.value = digits;
+                    setRoomId(digits);
+                  }}
                   placeholder="4 цифри"
+                  inputMode="numeric"
+                  pattern="\d{4}"
+                  maxLength={4}
+                  autoComplete="off"
                   className="input-minimal py-3 text-base w-full"
                 />
               </div>
