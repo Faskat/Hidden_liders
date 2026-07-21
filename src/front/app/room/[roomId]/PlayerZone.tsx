@@ -6,14 +6,7 @@ import type { PlayerView, LeaderView } from "@/lib/types";
 import { useCardsCatalog } from "@/app/contexts/CardsCatalogContext";
 import { GameCard } from "./Card";
 import { CardFan, type FanDirection } from "./CardFan";
-import { getHeroLimit } from "./constants";
-
-const FACTION_STYLE: Record<string, string> = {
-  Imperials: "bg-[var(--red)]/20 text-[var(--red)] border-[var(--red)]/40",
-  Highlanders: "bg-[var(--green)]/20 text-[var(--green)] border-[var(--green)]/40",
-  Waterfolk: "bg-blue-500/20 text-blue-400 border-blue-500/40",
-  Undead: "bg-[#2d2d2d] text-gray-300 border-gray-500/40",
-};
+import { getHeroLimit, FACTION_STYLE } from "./constants";
 
 function isHeroRef(
   x: PlayerView["open_heroes"][number]
@@ -22,7 +15,13 @@ function isHeroRef(
 }
 
 function getOpenHeroes(p: PlayerView): { card_id: string; faction?: string; name?: string }[] {
-  return p.open_heroes.filter(isHeroRef);
+  // Страховка від дублікатів: той самий card_id не малюємо двічі
+  const seen = new Set<string>();
+  return p.open_heroes.filter(isHeroRef).filter((h) => {
+    if (seen.has(h.card_id)) return false;
+    seen.add(h.card_id);
+    return true;
+  });
 }
 
 function getHiddenCount(p: PlayerView): number {
@@ -36,9 +35,10 @@ function getHiddenCount(p: PlayerView): number {
 /** For own player: hidden_heroes are full refs with card_id. Return list of card_ids. */
 function getOwnHiddenCardIds(p: PlayerView): string[] {
   if (!Array.isArray(p.hidden_heroes)) return [];
-  return p.hidden_heroes
+  const ids = p.hidden_heroes
     .filter((x): x is { card_id: string } => typeof x === "object" && x !== null && "card_id" in x)
     .map((x) => x.card_id);
+  return Array.from(new Set(ids));
 }
 
 const POSITION_ROTATION: Record<string, string> = {

@@ -149,17 +149,35 @@ export default function Home() {
           {mode === "create" && (
             <div className="space-y-4 opacity-0 animate-slide-in" style={{ animationFillMode: "forwards" }}>
               <div>
-                <label className="block text-sm font-medium text-[var(--text)]/80 mb-2">
-                  Гравці (2–6)
-                </label>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-sm font-medium text-[var(--text)]/80">
+                    Гравці
+                  </label>
+                  <span className="font-display text-xl font-semibold text-[var(--accent)] tabular-nums">
+                    {numPlayers}
+                  </span>
+                </div>
                 <input
-                  type="number"
+                  type="range"
                   min={2}
                   max={6}
+                  step={1}
                   value={numPlayers}
                   onChange={(e) => setNumPlayers(Number(e.target.value))}
-                  className="input-minimal py-3 text-base w-full"
+                  className="slider-gold"
+                  style={{ "--slider-fill": `${((numPlayers - 2) / 4) * 100}%` } as React.CSSProperties}
+                  aria-label="Кількість гравців"
                 />
+                <div className="flex justify-between mt-1.5 px-0.5">
+                  {[2, 3, 4, 5, 6].map((n) => (
+                    <span
+                      key={n}
+                      className={`text-xs tabular-nums transition-colors ${n === numPlayers ? "text-[var(--accent)] font-semibold" : "text-[var(--text-muted)]"}`}
+                    >
+                      {n}
+                    </span>
+                  ))}
+                </div>
               </div>
               <div className="flex gap-3">
                 <button
@@ -179,6 +197,8 @@ export default function Home() {
             </div>
           )}
 
+      
+
           {mode === "join" && (
             <div className="space-y-4 opacity-0 animate-slide-in" style={{ animationFillMode: "forwards" }}>
               <div>
@@ -188,8 +208,18 @@ export default function Home() {
                 <input
                   type="text"
                   value={roomId}
-                  onChange={(e) => setRoomId(e.target.value)}
+                  onChange={(e) => {
+                    const digits = e.target.value.replace(/\D/g, "").slice(0, 4);
+                    // Прибираємо невалідні символи і з DOM: інакше React не перезапише
+                    // значення, коли state не змінився, і сміття лишиться в полі.
+                    e.target.value = digits;
+                    setRoomId(digits);
+                  }}
                   placeholder="4 цифри"
+                  inputMode="numeric"
+                  pattern="\d{4}"
+                  maxLength={4}
+                  autoComplete="off"
                   className="input-minimal py-3 text-base w-full"
                 />
               </div>

@@ -34,6 +34,15 @@ def _actor_player(state: GameState, actor_id: str) -> Any:
     return state.get_player(actor_id)
 
 
+def _root_played_card_id(card_id: str, targets: dict) -> str:
+    """The card_id of the top-level card the player just played. Equal to `card_id` unless
+    this ability is being resolved indirectly via Perform/Perform_Top/Perform_Self/Bury_Perform,
+    in which case `card_id` is the *performed* card and the root is threaded through targets.
+    Ability execution runs against the pre-CardPlayed state, so the root card still appears
+    in the actor's hand_card_ids; it must never be picked as its own ability's hand target."""
+    return targets.get("_root_card_id") or card_id
+
+
 def _target_player(state: GameState, ability: dict, actor_id: str, targets: dict) -> Any:
     tid = targets.get("target_player_id")
     if tid:
@@ -188,15 +197,23 @@ def execute_ability(
         if not candidates:
             return []
         # When called from Perform, use perform_target_* so we don't clash with target_hidden_index (which selects which of my hidden to perform)
+        candidate_ids = {c[0] for c in candidates}
         cid = None
         if targets.get("_perform_depth") is not None:
-            cid = targets.get("perform_target_card_id") or targets.get("performTargetCardId")
+            perform_cid = targets.get("perform_target_card_id") or targets.get("performTargetCardId")
+            if perform_cid is not None and perform_cid in candidate_ids:
+                cid = perform_cid
             if cid is None:
                 pidx = targets.get("perform_target_hidden_index", targets.get("performTargetHiddenIndex", 0))
                 if isinstance(pidx, int) and 0 <= pidx < len(candidates):
                     cid = candidates[pidx][0]
         if cid is None:
-            cid = targets.get("target_card_id") or targets.get("targetCardId")
+            requested_cid = targets.get("target_card_id") or targets.get("targetCardId")
+            # Only trust an explicit card id if it's actually a valid candidate here; a stale
+            # or mismatched id must not be forwarded to HeroKilled (it would otherwise be
+            # appended to the graveyard without ever being removed from a party, duplicating it).
+            if requested_cid is not None and requested_cid in candidate_ids:
+                cid = requested_cid
         if cid is None:
             idx = targets.get("target_hidden_index", 0)
             if 0 <= idx < len(candidates):
@@ -225,29 +242,41 @@ def execute_ability(
         red_d, green_d = 0, 0
         if options:
             choice_idx = targets.get("move_markers_option", 0)
-            if 0 <= choice_idx < len(options):
-                parsed = _parse_move_effect(options[choice_idx])
-                if parsed:
-                    delta, kind = parsed
-                    if kind == "leading":
-                        red_d, green_d = _leading_behind_deltas(state, delta, 0)
-                    else:
-                        red_d, green_d = _leading_behind_deltas(state, 0, delta)
+            if not (isinstance(choice_idx, int) and 0 <= choice_idx < len(options)):
+                choice_idx = 0
+            parsed = _parse_move_effect(options[choice_idx])
+            if parsed:
+                delta, kind = parsed
+                if kind == "leading":
+                    red_d, green_d = _leading_behind_deltas(state, delta, 0)
+                else:
+                    red_d, green_d = _leading_behind_deltas(state, 0, delta)
         elif effects:
-            for eff in effects:
-                parsed = _parse_move_effect(eff)
+            if logic == "AND":
+                for eff in effects:
+                    parsed = _parse_move_effect(eff)
+                    if parsed:
+                        d, kind = parsed
+                        if kind == "leading":
+                            rd, gd = _leading_behind_deltas(state, d, 0)
+                        else:
+                            rd, gd = _leading_behind_deltas(state, 0, d)
+                        red_d += rd
+                        green_d += gd
+            else:
+                # OR: effects are alternatives — honour the player's choice, same as `options`
+                # (e.g. Triple Sword Lizard "-1 leading / -3 leading"; previously the first
+                # effect was always applied and the choice was silently ignored)
+                choice_idx = targets.get("move_markers_option", 0)
+                if not (isinstance(choice_idx, int) and 0 <= choice_idx < len(effects)):
+                    choice_idx = 0
+                parsed = _parse_move_effect(effects[choice_idx])
                 if parsed:
                     d, kind = parsed
                     if kind == "leading":
-                        rd, gd = _leading_behind_deltas(state, d, 0)
+                        red_d, green_d = _leading_behind_deltas(state, d, 0)
                     else:
-                        rd, gd = _leading_behind_deltas(state, 0, d)
-                    if logic == "AND":
-                        red_d += rd
-                        green_d += gd
-                    else:
-                        red_d, green_d = rd, gd
-                        break
+                        red_d, green_d = _leading_behind_deltas(state, 0, d)
         if red_d or green_d:
             events.append(("MarkerMoved", MarkerMoved(red_delta=red_d, green_delta=green_d).to_payload()))
         return events
@@ -286,17 +315,23 @@ def execute_ability(
             return events
 
         if source == "Tavern":
+            # Slot being buried by Bury_Perform: events are generated against the pre-apply
+            # state, where the buried card is still in its tavern slot — it must never be
+            # drawn here as well, or it would end up in both graveyard and hand.
+            skip_slot = targets.get("_bury_tavern_slot")
             slot = targets.get("tavern_slot")
+            if slot == skip_slot:
+                slot = None
             tavern_slots = targets.get("tavern_slots")
             if isinstance(tavern_slots, list) and len(tavern_slots) >= count:
                 # User chose specific slots in modal (e.g. Raven Whisperer: pick 2)
                 for i in tavern_slots[:count]:
-                    if isinstance(i, int) and 0 <= i < TAVERN_SLOTS and state.tavern[i]:
+                    if isinstance(i, int) and 0 <= i < TAVERN_SLOTS and i != skip_slot and state.tavern[i]:
                         cid = state.tavern[i]
                         events.append(("CardDrawn", CardDrawn(player_id=actor_player_id, card_id=cid, source="tavern", tavern_slot=i).to_payload()))
             elif slot is None and count == 1:
                 for i in range(TAVERN_SLOTS):
-                    if state.tavern[i]:
+                    if i != skip_slot and state.tavern[i]:
                         slot = i
                         break
             if slot is not None and 0 <= slot < TAVERN_SLOTS and state.tavern[slot] and not events:
@@ -307,7 +342,6 @@ def execute_ability(
                         break
             elif count > 1 and not events:
                 # Draw from first available slots; skip slot being buried by Bury_Perform if provided
-                skip_slot = targets.get("_bury_tavern_slot")
                 drawn = 0
                 for i in range(TAVERN_SLOTS):
                     if drawn >= count:
@@ -341,8 +375,13 @@ def execute_ability(
         source = ability.get("source", "hand")
         target = ability.get("target", "Party")
         if source == "hand" and actor.hand_card_ids:
-            cid = targets.get("target_card_id") or actor.hand_card_ids[0]
-            if cid in actor.hand_card_ids:
+            root_id = _root_played_card_id(card_id, targets)
+            requested_cid = targets.get("target_card_id")
+            if requested_cid and requested_cid != root_id and requested_cid in actor.hand_card_ids:
+                cid = requested_cid
+            else:
+                cid = next((c for c in actor.hand_card_ids if c != root_id), None)
+            if cid:
                 events.append(("HeroPutFaceDown", HeroPutFaceDown(player_id=actor_player_id, card_id=cid).to_payload()))
         return events
 
@@ -353,9 +392,14 @@ def execute_ability(
         target_lower = (ability.get("target") or "").lower()
         # Special case: hand <-> Party_face_down (two-card swap, or one card from party to hand when only played card in hand)
         if source == "hand" and ("party_face_down" in target_lower or target == "party_face_down"):
-            card_from_hand = targets.get("target_card_id") or next(
-                (c for c in actor.hand_card_ids if c != card_id), None
-            )
+            root_id = _root_played_card_id(card_id, targets)
+            requested_from_hand = targets.get("target_card_id")
+            # The card being played is still nominally in actor.hand_card_ids at this point
+            # (CardPlayed hasn't been applied yet), so it must never be picked as the swap partner.
+            if requested_from_hand and requested_from_hand != root_id and requested_from_hand in actor.hand_card_ids:
+                card_from_hand = requested_from_hand
+            else:
+                card_from_hand = next((c for c in actor.hand_card_ids if c != root_id), None)
             idx = targets.get("target_hidden_index", 0)
             card_from_party = (
                 actor.hidden_heroes[idx].card_id
@@ -399,6 +443,21 @@ def execute_ability(
         from_zone, from_pid, slot_from = _resolve_zone(state, actor_player_id, source, targets)
         to_zone, to_pid, slot_to = _resolve_zone(state, actor_player_id, ability.get("target"), targets)
         card_id_swap = targets.get("target_card_id")
+        # A client-supplied target_card_id must actually live in the zone `source` implies;
+        # otherwise CardMoved would materialize a duplicate (added to to_zone, never really
+        # removed from from_zone). Discard it and fall through to the safe per-source defaults.
+        if card_id_swap:
+            if source == "Tavern":
+                slot_check = slot_from if slot_from is not None else 0
+                if not (0 <= slot_check < TAVERN_SLOTS and state.tavern[slot_check] == card_id_swap):
+                    card_id_swap = None
+            elif source == "Graveyard_top":
+                if not (state.graveyard and state.graveyard[-1] == card_id_swap):
+                    card_id_swap = None
+            elif "party" in (source or "").lower():
+                tplayer = _target_player(state, ability, actor_player_id, targets)
+                if not (tplayer and any(r.card_id == card_id_swap for r in tplayer.open_heroes)):
+                    card_id_swap = None
         if not card_id_swap and source == "Tavern":
             for i in range(TAVERN_SLOTS):
                 if state.tavern[i]:
@@ -427,7 +486,8 @@ def execute_ability(
             take_or_swap = targets.get("take_or_swap_choice") or targets.get("takeOrSwapChoice")
             if take_or_swap == "swap" and from_pid and to_pid == actor_player_id:
                 swap_hand_card = targets.get("swap_hand_card_id") or targets.get("swapHandCardId")
-                if swap_hand_card and swap_hand_card in actor.hand_card_ids:
+                root_id = _root_played_card_id(card_id, targets)
+                if swap_hand_card and swap_hand_card != root_id and swap_hand_card in actor.hand_card_ids:
                     events.append((
                         "CardMoved",
                         CardMoved(
@@ -558,8 +618,11 @@ def execute_ability(
 
     # ---- Draw_All_Tavern, Reveal_Harbor: multi-card; simplified ----
     if action == "Draw_All_Tavern":
+        # Skip the slot being buried by Bury_Perform (see Draw): the buried card is still
+        # in the pre-apply tavern and must not be drawn on top of going to the graveyard.
+        skip_slot = targets.get("_bury_tavern_slot")
         for i in range(TAVERN_SLOTS):
-            if state.tavern[i]:
+            if i != skip_slot and state.tavern[i]:
                 events.append(("CardDrawn", CardDrawn(player_id=actor_player_id, card_id=state.tavern[i], source="tavern", tavern_slot=i).to_payload()))
         return events
 
