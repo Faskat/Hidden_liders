@@ -28,8 +28,16 @@ export type CardSizeSpec = {
   spine: number;
   /** Нахлист карт у віялі; null = цей розмір ніколи не віялиться. */
   overlap: number | null;
+  /**
+   * Висота арт-бокса в пікселях. Фіксована, а не «скільки лишилось»: підпис
+   * здібності буває на три рядки і з'їдає весь вільний простір, після чого арт
+   * схлопується в смужку 8px. Тепер арт бере своє, а текст — решту.
+   */
+  artH: number;
   nameFontPx: number;
   footerFontPx: number;
+  /** Скільки рядків підпису здібності показуємо, поки не обріжемо. */
+  abilityLines: 2 | 3;
   /** false = підпис здібності й маркери не показуємо взагалі. */
   showFooter: boolean;
 };
@@ -37,13 +45,13 @@ export type CardSizeSpec = {
 export const CARD_ASPECT = 1.4;
 
 export const CARD_SIZES: Record<CardSizeToken, CardSizeSpec> = {
-  graveyard:  { w:  60, h:  84, pad:  4, spine:  5, overlap: null, nameFontPx:  9, footerFontPx:  0, showFooter: false },
-  leaderMini: { w:  52, h:  73, pad:  4, spine:  5, overlap: null, nameFontPx:  9, footerFontPx:  8, showFooter: false },
-  tiny:       { w:  80, h: 112, pad:  8, spine:  6, overlap:  32,  nameFontPx: 11, footerFontPx: 10, showFooter: true  },
-  small:      { w: 100, h: 140, pad:  8, spine:  8, overlap:  40,  nameFontPx: 12, footerFontPx: 10, showFooter: true  },
-  normal:     { w: 100, h: 140, pad:  8, spine:  8, overlap:  40,  nameFontPx: 12, footerFontPx: 10, showFooter: true  },
-  large:      { w: 130, h: 182, pad: 10, spine: 10, overlap:  52,  nameFontPx: 14, footerFontPx: 12, showFooter: true  },
-  xlarge:     { w: 160, h: 224, pad: 12, spine: 12, overlap:  64,  nameFontPx: 16, footerFontPx: 14, showFooter: true  },
+  graveyard:  { w:  60, h:  84, pad:  4, spine:  5, overlap: null, artH: 48, nameFontPx:  9, footerFontPx:  0, abilityLines: 2, showFooter: false },
+  leaderMini: { w:  52, h:  73, pad:  4, spine:  5, overlap: null, artH: 49, nameFontPx:  9, footerFontPx:  8, abilityLines: 2, showFooter: false },
+  tiny:       { w:  80, h: 112, pad:  8, spine:  6, overlap:  32,  artH: 46, nameFontPx: 11, footerFontPx: 10, abilityLines: 2, showFooter: true  },
+  small:      { w: 100, h: 140, pad:  8, spine:  8, overlap:  40,  artH: 56, nameFontPx: 12, footerFontPx: 10, abilityLines: 3, showFooter: true  },
+  normal:     { w: 100, h: 140, pad:  8, spine:  8, overlap:  40,  artH: 56, nameFontPx: 12, footerFontPx: 10, abilityLines: 3, showFooter: true  },
+  large:      { w: 130, h: 182, pad: 10, spine: 10, overlap:  52,  artH: 76, nameFontPx: 14, footerFontPx: 12, abilityLines: 3, showFooter: true  },
+  xlarge:     { w: 160, h: 224, pad: 12, spine: 12, overlap:  64,  artH: 96, nameFontPx: 16, footerFontPx: 14, abilityLines: 3, showFooter: true  },
 };
 
 /** Крок віяла: наскільки лівий край наступної карти зсунуто відносно попередньої. */

@@ -42,6 +42,9 @@ export function getLeaderById(id: string): LeaderCard | undefined {
 export interface CardDisplayInfo {
   name: string;
   faction?: string;
+  /** Лише для лідерів: дві фракції, які вони поєднують. */
+  fraction_1?: string;
+  fraction_2?: string;
   red_delta?: number;
   green_delta?: number;
   hasMarkersOnly?: boolean;
@@ -57,7 +60,8 @@ export function getCardFromCatalog(
   if (!c) return undefined;
   const name = c.name ?? cardId.replace(/^hero_|^leader_/, "");
   if (c.fraction_1) {
-    return { name }; // leader
+    // Лідер: віддаємо обидві фракції — вони потрібні і для кольору, і для арту.
+    return { name, faction: c.faction ?? "Leader", fraction_1: c.fraction_1, fraction_2: c.fraction_2 };
   }
   const hasMarkersOnly = Boolean(c.markers) && c.red_delta === undefined && c.green_delta === undefined;
   return {
@@ -94,10 +98,17 @@ export function getCardById(
   return undefined;
 }
 
-/** Faction to display color (Imperials=red, Highlanders=green, Waterfolk=blue, Undead=black) */
+/**
+ * Єдине джерело кольору фракції: рамка карти, смуга фракції, бейджі.
+ *
+ * `Leader` і `Joker` — псевдофракції з каталогу бекенда (`setup.py`). Без них
+ * лідер і Проклятий імператор малювалися нейтральним `var(--border)`.
+ */
 export const FACTION_COLORS: Record<string, string> = {
   Imperials: "var(--red)",
   Highlanders: "var(--green)",
-  Waterfolk: "#3b82f6",
-  Undead: "#1f2937",
+  Waterfolk: "var(--faction-waterfolk)",
+  Undead: "var(--faction-undead)",
+  Leader: "var(--faction-leader)",
+  Joker: "var(--faction-joker)",
 };

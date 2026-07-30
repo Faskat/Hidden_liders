@@ -4,6 +4,9 @@ import type { CardCatalogEntry } from "@/lib/types";
 import { getCardById, FACTION_COLORS } from "@/lib/cards";
 import { getAbilityLabel, formatMarkersShort } from "@/lib/cardDescription";
 import { CARD_SIZES, type CardSizeToken } from "@/lib/cardSizes";
+import { CardArt } from "@/lib/cardart/CardArt";
+import { CardBack, CARD_BACK_FIELD } from "@/lib/cardart/CardBack";
+import { FACTION_LABEL } from "./constants";
 
 export function GameCard({
   cardId,
@@ -40,14 +43,10 @@ export function GameCard({
   if (variant === "hidden") {
     return (
       <div
-        className="rounded-lg border-2 flex items-center justify-center bg-[#1e3a5f]/10 select-none"
-        style={{
-          borderColor: "#1e3a5f",
-          width: spec.w,
-          height: spec.h,
-        }}
+        className="rounded-lg border-2 overflow-hidden select-none"
+        style={{ borderColor: CARD_BACK_FIELD, width: spec.w, height: spec.h }}
       >
-        <span className="board-label text-[#1e3a5f]/60 text-xs">?</span>
+        <CardBack size={size} />
       </div>
     );
   }
@@ -55,6 +54,11 @@ export function GameCard({
   const isLarge = size === "large" || size === "xlarge";
   const isXLarge = size === "xlarge";
   const isGraveyardSize = size === "graveyard";
+
+  /** Ключ арту — англійське ім'я з каталогу, а не card_id: див. lib/cardart/types.ts. */
+  const artKey = catalogProp?.[cardId]?.name ?? resolved?.name ?? name;
+  const spineColor = isGraveyard ? "var(--zone-graveyard-border)" : borderColor;
+  const spineLabel = faction ? FACTION_LABEL[faction] : undefined;
 
   const catalogEntry = catalogProp?.[cardId];
   const abilityLabel = getAbilityLabel(catalogEntry?.ability, catalogEntry?.markers);
@@ -74,39 +78,78 @@ export function GameCard({
 
   return (
     <div
-      className={`rounded-lg border-2 flex flex-col shadow-sm overflow-hidden ${isGraveyard ? "graveyard-card-bg border-[var(--zone-graveyard-border)] text-[var(--zone-graveyard-text)]" : "bg-white/95"}`}
+      className={`rounded-lg border-2 flex flex-row shadow-sm overflow-hidden ${isGraveyard ? "graveyard-card-bg border-[var(--zone-graveyard-border)] text-[var(--zone-graveyard-text)]" : "bg-white/95"}`}
       style={{
         ...(isGraveyard ? {} : { borderColor }),
         width: spec.w,
         height: spec.h,
-        padding: spec.pad,
       }}
       title={cardTooltip}
       translate="no"
     >
-      <div className={`flex items-center justify-between gap-0.5 min-w-0 min-h-0 flex-1 overflow-hidden ${isGraveyardSize ? "flex-col justify-center text-center" : ""} ${isLarge ? "min-h-[1.5rem]" : ""}`}>
+      {/* Смуга фракції: замінює собою колишню кольорову крапку в рядку імені. */}
+      <div
+        className="shrink-0 h-full flex items-center justify-center overflow-hidden"
+        style={{ width: spec.spine, background: spineColor }}
+        title={faction}
+      >
+        {isLarge && spineLabel && (
+          <span
+            aria-hidden
+            className="board-label whitespace-nowrap tracking-wider uppercase"
+            style={{
+              writingMode: "vertical-rl",
+              transform: "rotate(180deg)",
+              fontSize: Math.max(7, spec.spine - 3),
+              color: "rgba(255,255,255,0.75)",
+            }}
+          >
+            {spineLabel}
+          </span>
+        )}
+      </div>
+
+      <div className="flex-1 min-w-0 flex flex-col" style={{ padding: spec.pad }}>
+      <div className={`shrink-0 min-w-0 overflow-hidden ${isGraveyardSize ? "text-center" : ""} ${isLarge ? "min-h-[1.5rem]" : ""}`}>
         <span
-          className={`font-semibold notranslate ${isGraveyardSize ? "leading-tight line-clamp-2 break-words text-center w-full" : "truncate"} ${isGraveyard ? "zone-graveyard-text" : "text-[#1e3a5f]"}`}
+          className={`font-semibold notranslate block ${isGraveyardSize ? "leading-tight line-clamp-2 break-words text-center w-full" : "truncate"} ${isGraveyard ? "zone-graveyard-text" : "text-[#1e3a5f]"}`}
           style={{ fontSize: spec.nameFontPx }}
           title={name}
         >
           {name}
         </span>
-        {faction && !isGraveyardSize && (
-          <span
-            className={`rounded-full shrink-0 ${isXLarge ? "w-3 h-3" : "w-2 h-2"}`}
-            style={{ background: borderColor }}
-            title={faction}
-          />
-        )}
       </div>
+
+      {/* Арт забирає собі весь вільний простір, який раніше з'їдав рядок імені. */}
+      <div
+        className="shrink-0 overflow-hidden rounded-[3px]"
+        style={{
+          height: spec.artH,
+          marginTop: 3,
+          marginBottom: spec.showFooter ? 3 : 0,
+          ...(isGraveyard ? { filter: "saturate(0.25) brightness(0.85)" } : {}),
+        }}
+      >
+        <CardArt
+          artKey={artKey}
+          faction={faction}
+          size={size}
+          fraction1={resolved?.fraction_1}
+          fraction2={resolved?.fraction_2}
+        />
+      </div>
+
       {spec.showFooter && (
       <div
-        className="text-[#1e3a5f]/80 mt-auto space-y-0.5 min-h-0 overflow-hidden"
+        className="text-[#1e3a5f]/80 flex-1 space-y-0.5 min-h-0 overflow-hidden"
         style={{ fontSize: spec.footerFontPx }}
       >
         {abilityLabel && (
-          <div className="font-medium text-[#1e3a5f]/90 line-clamp-3 break-words">{abilityLabel}</div>
+          <div
+            className={`font-medium text-[#1e3a5f]/90 break-words ${spec.abilityLines === 2 ? "line-clamp-2" : "line-clamp-3"}`}
+          >
+            {abilityLabel}
+          </div>
         )}
         {markersShort && (
           <div className="flex flex-wrap gap-1">
@@ -137,6 +180,7 @@ export function GameCard({
         )}
       </div>
       )}
+      </div>
     </div>
   );
 }

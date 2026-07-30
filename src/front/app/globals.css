@@ -34,6 +34,16 @@
     --zone-graveyard-placeholder-bg: rgba(55, 52, 70, 0.45);
     --zone-graveyard-placeholder-border: rgba(110, 100, 130, 0.55);
     --zone-graveyard-placeholder-text: #d0cce0;
+
+    /* Кольори фракцій. Червоний і зелений беруться з --red/--green вище. */
+    --faction-waterfolk: #3b82f6;
+    --faction-undead: #2b2b33;
+    --faction-joker: #6b5b8a;
+    --faction-leader: #c9a227;
+
+    /* Єдине, що в арті карти реагує на тему: верхня вуаль поверх малюнка.
+       Пігмент самої фігури однаковий в обох темах, як фарба на друкованій карті. */
+    --card-art-veil: rgba(0, 0, 0, 0.1);
   }
 
   [data-theme="light"] {
@@ -64,6 +74,14 @@
     --zone-graveyard-placeholder-bg: rgba(70, 65, 85, 0.25);
     --zone-graveyard-placeholder-border: rgba(90, 85, 110, 0.5);
     --zone-graveyard-placeholder-text: #4a4558;
+
+    --faction-waterfolk: #2563eb;
+    --faction-undead: #3a3a46;
+    --faction-joker: #5b4a7a;
+    --faction-leader: #a67c2e;
+
+    /* На світлій темі вуаль висвітлює, а не затемнює. */
+    --card-art-veil: rgba(255, 255, 255, 0.07);
   }
 
   body {
