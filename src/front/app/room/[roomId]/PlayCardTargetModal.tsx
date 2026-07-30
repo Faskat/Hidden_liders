@@ -3,6 +3,7 @@
 import { useState, useCallback } from "react";
 import type { CardCatalogEntry, GameStateView, PlayCardTargets } from "@/lib/types";
 import { GameCard } from "./Card";
+import { CARD_SIZES } from "@/lib/cardSizes";
 import {
   getAbilityTargetSteps,
   getCardCandidates,
@@ -296,7 +297,10 @@ export function PlayCardTargetModal({
                           catalog={catalog}
                         />
                       ) : (
-                        <div className="w-[100px] h-[140px] rounded-lg border-2 border-[#1e3a5f] flex items-center justify-center bg-[#1e3a5f]/10 px-1">
+                        <div
+                          className="rounded-lg border-2 border-[#1e3a5f] flex items-center justify-center bg-[#1e3a5f]/10 px-1"
+                          style={{ width: CARD_SIZES.small.w, height: CARD_SIZES.small.h }}
+                        >
                           <span className="text-[var(--text-muted)] text-sm text-center leading-tight">
                             {c.cardId && catalog?.[c.cardId]?.name ? catalog[c.cardId].name : c.label}
                           </span>

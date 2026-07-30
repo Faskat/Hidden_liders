@@ -4,8 +4,12 @@ import { useEffect, useRef, useState } from "react";
 import type { GameStateView } from "@/lib/types";
 import { useCardsCatalog } from "@/app/contexts/CardsCatalogContext";
 import { GameCard } from "./Card";
+import { CARD_SIZES } from "@/lib/cardSizes";
 
 const WAR_AREA_BG = "rgba(30, 58, 95, 0.35)";
+
+/** Колоди, порожні слоти таверни й цвинтар — усі розміром із карту цвинтаря. */
+const SLOT = CARD_SIZES.graveyard;
 
 const ZONE_PANEL = "rounded-xl glass-panel p-2";
 const ZONE_HEADER = "text-xs font-semibold uppercase tracking-wider board-label zone-header mb-1";
@@ -73,7 +77,7 @@ function CardStackPlaceholder({
 
   return (
     <div className="flex flex-col items-center">
-      <div className="relative w-[60px]">
+      <div className="relative" style={{ width: SLOT.w }}>
         <div
           className="absolute inset-0 rounded border-2 bg-black/10"
           style={{ transform: "translate(2px, 2px)" }}
@@ -81,8 +85,8 @@ function CardStackPlaceholder({
         <div
           className="relative rounded-lg border-2 flex items-center justify-center board-label shadow-sm"
           style={{
-            width: 60,
-            height: 84,
+            width: SLOT.w,
+            height: SLOT.h,
             ...(stackStyle ?? { background: "rgba(30, 58, 95, 0.15)", borderColor: "var(--zone-label)", color: "var(--zone-label)" }),
           }}
         >
@@ -227,7 +231,8 @@ export function CentralBoard({
                   type="button"
                   disabled={!canDraw}
                   onClick={() => canDraw && onDrawFromTavern(i)}
-                  className="w-[60px] h-[84px] rounded-lg border-2 border-dashed border-[var(--border)] flex flex-col items-center justify-center gap-0.5 disabled:opacity-50 disabled:cursor-not-allowed hover:border-[var(--accent)]/50 shrink-0 bg-[var(--bg-panel)]/40"
+                  className="rounded-lg border-2 border-dashed border-[var(--border)] flex flex-col items-center justify-center gap-0.5 disabled:opacity-50 disabled:cursor-not-allowed hover:border-[var(--accent)]/50 shrink-0 bg-[var(--bg-panel)]/40"
+                  style={{ width: SLOT.w, height: SLOT.h }}
                 >
                   <span className="text-[10px] text-[var(--text-muted)]">—</span>
                 </button>
@@ -247,9 +252,9 @@ export function CentralBoard({
               onClick={() => canDraw && onDrawFromHarbor()}
               className="flex flex-col items-center disabled:cursor-not-allowed disabled:opacity-60 hover:opacity-100 transition-opacity"
             >
-              <div className="relative w-[60px]">
+              <div className="relative" style={{ width: SLOT.w }}>
                 <div className="absolute inset-0 rounded-lg border-2 bg-black/15" style={{ transform: "translate(2px, 2px)", borderColor: "var(--zone-harbor-border)" }} />
-                <div className="relative rounded-lg border-2 flex items-center justify-center board-label shadow-md zone-harbor-text" style={{ width: 60, height: 84, background: "var(--zone-harbor-bg)", borderColor: "var(--zone-harbor-border)" }}>
+                <div className="relative rounded-lg border-2 flex items-center justify-center board-label shadow-md zone-harbor-text" style={{ width: SLOT.w, height: SLOT.h, background: "var(--zone-harbor-bg)", borderColor: "var(--zone-harbor-border)" }}>
                   ?
                 </div>
               </div>
@@ -275,7 +280,7 @@ export function CentralBoard({
           <div className={`${ZONE_PANEL} zone-graveyard-panel flex flex-col items-center flex-1 min-w-0`} translate="no">
             <p className={`${ZONE_HEADER} zone-graveyard-text`}>Цвинтар</p>
             <div className="flex flex-col items-center">
-              <div className="rounded-lg overflow-hidden shadow-md shrink-0" style={{ width: 60, height: 84 }}>
+              <div className="rounded-lg overflow-hidden shadow-md shrink-0" style={{ width: SLOT.w, height: SLOT.h }}>
                 {top?.card_id ? (
                   <GameCard
                     cardId={top.card_id}

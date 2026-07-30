@@ -1,14 +1,14 @@
 "use client";
 
 import { Children, type ReactNode } from "react";
+import { CARD_SIZES, fanStep, type CardSizeToken } from "@/lib/cardSizes";
 
-const TINY = { width: 80, height: 112, overlap: 32 };
-const HAND = { width: 130, height: 182, overlap: 52 };
+/** Карти від цієї ширини вважаємо «великими»: сильніший підйом при наведенні. */
+const LARGE_CARD_MIN_WIDTH = 130;
 
-function getDimensions(fanSize: "tiny" | "hand") {
-  const d = fanSize === "hand" ? HAND : TINY;
-  const step = d.width - d.overlap;
-  return { ...d, step };
+function getDimensions(token: CardSizeToken) {
+  const spec = CARD_SIZES[token];
+  return { width: spec.w, height: spec.h, step: fanStep(token) };
 }
 
 export type FanDirection = "bottom" | "top" | "left" | "right" | "topLeft" | "topRight";
@@ -101,18 +101,19 @@ export function CardFan({
   children: ReactNode;
   direction?: FanDirection;
   interactive?: boolean;
-  /** "hand" = large cards for player's hand at bottom */
-  cardSize?: "tiny" | "hand";
+  /** Має збігатися з розміром, який передано в GameCard усередині віяла. */
+  cardSize?: CardSizeToken;
 }) {
   const items = Children.toArray(children).filter((c) => c != null);
   const n = items.length;
   if (n === 0) return null;
 
   const dim = getDimensions(fanSize);
-  const hoverTransform = getHoverTransform(direction, fanSize === "hand");
+  const isLargeCard = dim.width >= LARGE_CARD_MIN_WIDTH;
+  const hoverTransform = getHoverTransform(direction, isLargeCard);
   const isHorizontalFan = direction === "bottom" || direction === "top" || direction === "left" || direction === "right";
   const isDiagonal = direction === "topLeft" || direction === "topRight";
-  const hoverMargin = fanSize === "hand" ? 32 : 24;
+  const hoverMargin = isLargeCard ? 32 : 24;
   const diagStep = dim.step * 0.707;
   const totalWidth = isDiagonal
     ? (n - 1) * diagStep + dim.width + hoverMargin

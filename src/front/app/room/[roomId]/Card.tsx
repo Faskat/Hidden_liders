@@ -3,6 +3,7 @@
 import type { CardCatalogEntry } from "@/lib/types";
 import { getCardById, FACTION_COLORS } from "@/lib/cards";
 import { getAbilityLabel, formatMarkersShort } from "@/lib/cardDescription";
+import { CARD_SIZES, type CardSizeToken } from "@/lib/cardSizes";
 
 export function GameCard({
   cardId,
@@ -21,7 +22,7 @@ export function GameCard({
   faction?: string;
   red_delta?: number;
   green_delta?: number;
-  size?: "small" | "normal" | "tiny" | "large" | "xlarge" | "graveyard";
+  size?: CardSizeToken;
   theme?: "default" | "graveyard";
   catalog?: Record<string, CardCatalogEntry>;
 }) {
@@ -33,19 +34,7 @@ export function GameCard({
   const hasMarkersOnly = resolved?.hasMarkersOnly ?? false;
 
   const borderColor = faction ? FACTION_COLORS[faction] ?? "var(--border)" : "var(--border)";
-  const cardSize =
-    size === "tiny"
-      ? { w: 80, h: 112 }
-      : size === "small"
-        ? { w: 100, h: 140 }
-        : size === "graveyard"
-          ? { w: 60, h: 84 }
-          : size === "large"
-            ? { w: 130, h: 182 }
-            : size === "xlarge"
-              ? { w: 160, h: 224 }
-              : { w: 100, h: 140 };
-
+  const spec = CARD_SIZES[size];
   const isGraveyard = theme === "graveyard";
 
   if (variant === "hidden") {
@@ -54,8 +43,8 @@ export function GameCard({
         className="rounded-lg border-2 flex items-center justify-center bg-[#1e3a5f]/10 select-none"
         style={{
           borderColor: "#1e3a5f",
-          width: cardSize.w,
-          height: cardSize.h,
+          width: spec.w,
+          height: spec.h,
         }}
       >
         <span className="board-label text-[#1e3a5f]/60 text-xs">?</span>
@@ -88,15 +77,19 @@ export function GameCard({
       className={`rounded-lg border-2 flex flex-col shadow-sm overflow-hidden ${isGraveyard ? "graveyard-card-bg border-[var(--zone-graveyard-border)] text-[var(--zone-graveyard-text)]" : "bg-white/95"}`}
       style={{
         ...(isGraveyard ? {} : { borderColor }),
-        width: cardSize.w,
-        height: cardSize.h,
-        padding: isXLarge ? 12 : isLarge ? 10 : isGraveyardSize ? 4 : 8,
+        width: spec.w,
+        height: spec.h,
+        padding: spec.pad,
       }}
       title={cardTooltip}
       translate="no"
     >
       <div className={`flex items-center justify-between gap-0.5 min-w-0 min-h-0 flex-1 overflow-hidden ${isGraveyardSize ? "flex-col justify-center text-center" : ""} ${isLarge ? "min-h-[1.5rem]" : ""}`}>
-        <span className={`font-semibold notranslate ${isGraveyardSize ? "text-[9px] leading-tight line-clamp-2 break-words text-center w-full" : "truncate"} ${isGraveyard ? "zone-graveyard-text" : "text-[#1e3a5f]"} ${!isGraveyardSize && (isXLarge ? "text-base" : isLarge ? "text-sm" : "text-xs")}`} title={name}>
+        <span
+          className={`font-semibold notranslate ${isGraveyardSize ? "leading-tight line-clamp-2 break-words text-center w-full" : "truncate"} ${isGraveyard ? "zone-graveyard-text" : "text-[#1e3a5f]"}`}
+          style={{ fontSize: spec.nameFontPx }}
+          title={name}
+        >
           {name}
         </span>
         {faction && !isGraveyardSize && (
@@ -107,8 +100,11 @@ export function GameCard({
           />
         )}
       </div>
-      {!isGraveyardSize && (
-      <div className={`text-[#1e3a5f]/80 mt-auto space-y-0.5 min-h-0 overflow-hidden ${isXLarge ? "text-sm" : isLarge ? "text-xs" : "text-[10px]"}`}>
+      {spec.showFooter && (
+      <div
+        className="text-[#1e3a5f]/80 mt-auto space-y-0.5 min-h-0 overflow-hidden"
+        style={{ fontSize: spec.footerFontPx }}
+      >
         {abilityLabel && (
           <div className="font-medium text-[#1e3a5f]/90 line-clamp-3 break-words">{abilityLabel}</div>
         )}

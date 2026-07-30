@@ -6,6 +6,7 @@ import type { PlayerView, LeaderView } from "@/lib/types";
 import { useCardsCatalog } from "@/app/contexts/CardsCatalogContext";
 import { GameCard } from "./Card";
 import { CardFan, type FanDirection } from "./CardFan";
+import { CARD_SIZES, type CardSizeToken } from "@/lib/cardSizes";
 import { getHeroLimit, FACTION_STYLE } from "./constants";
 
 function isHeroRef(
@@ -152,6 +153,9 @@ export function PlayerZone({
 
   const isMyBottom = isMe && position === "bottom";
 
+  /** Один токен і для геометрії віяла, і для самих карт — інакше вони розходяться. */
+  const handSize: CardSizeToken = position === "bottom" ? "xlarge" : "tiny";
+
   const avatarState = gameEnded ? (isWinner ? "winner" : "ended") : isMyTurn ? "turn" : "idle";
 
   const headerContent = (
@@ -172,7 +176,7 @@ export function PlayerZone({
                 <button
                   type="button"
                   className="rounded-lg overflow-hidden border-2 flex-shrink-0 transition-transform focus:outline-none focus:ring-2 focus:ring-[var(--accent)] cursor-default"
-                  style={{ width: 52, height: 72 }}
+                  style={{ width: CARD_SIZES.leaderMini.w, height: CARD_SIZES.leaderMini.h }}
                 >
                   {showLeaderOpen ? (
                     <div className="leader-peek w-full h-full bg-white/95 rounded border border-[var(--accent)]/40 shadow-lg">
@@ -356,7 +360,7 @@ export function PlayerZone({
         <div className="inline-block">
         {isMe ? (
           handCards.length > 0 ? (
-            <CardFan direction={position as FanDirection} interactive={true} cardSize={position === "bottom" ? "hand" : "tiny"}>
+            <CardFan direction={position as FanDirection} interactive={true} cardSize={handSize}>
               {handCards.map((cid) => {
                 const isSelectedForDiscard = discardMode && selectedForDiscard.includes(cid);
                 return (
@@ -387,7 +391,7 @@ export function PlayerZone({
                           : "disabled:opacity-60 disabled:cursor-not-allowed"
                     }`}
                   >
-                    <GameCard cardId={cid} variant="open" size={position === "bottom" ? "xlarge" : "tiny"} catalog={catalog} />
+                    <GameCard cardId={cid} variant="open" size={handSize} catalog={catalog} />
                   </button>
                 );
               })}
