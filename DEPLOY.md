@@ -5,6 +5,12 @@
 `src/front/railway.json` — Railway подхватит их сам, останется только указать
 Root Directory и переменные.
 
+Версии рантаймов закреплены: Python — `src/back/.python-version` (3.13),
+Node — `src/front/.nvmrc` (22). Railway выберет их сам.
+
+Ветка: Railway по умолчанию деплоит ветку по умолчанию репозитория. Либо смерджи
+всё в `main`, либо в Settings сервиса укажи нужную ветку.
+
 ## 1. Бэкенд (FastAPI)
 
 1. Railway → New Service → GitHub Repo → `Faskat/Hidden_liders`.
@@ -18,6 +24,9 @@ Root Directory и переменные.
 
    `PORT` Railway задаёт сам — `run.py` его читает. `DATABASE_URL` по умолчанию
    SQLite `./data/events.db`.
+
+   При `CORS_ORIGINS=*` бэкенд автоматически отключает `allow_credentials`
+   (браузер иначе отбрасывает ответ). Для боевого фронта укажи явный домен.
 4. Settings → Networking → **Generate Domain**. Запомни URL — он нужен фронту.
 5. Проверка: `https://<back-домен>/health` должен вернуть ok.
 
