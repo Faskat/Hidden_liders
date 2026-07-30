@@ -316,7 +316,7 @@ export function getAbilityTargetSteps(
   }
 
   // Draw: source choice or tavern slot(s)
-  if (action === "Draw") {
+  if (ability && action === "Draw") {
     const src = ability.source;
     const drawCount = Math.max(1, Number(ability.count) || 1);
     if (Array.isArray(src) && src.length > 1) {
