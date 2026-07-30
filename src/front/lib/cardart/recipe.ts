@@ -29,12 +29,12 @@ const MOOD_FACE: Record<Mood, CardRecipe["face"]> = {
  * додаються, щойно з'являються відповідні деталі.
  */
 const BASE: Record<Archetype, CardRecipe> = {
-  caster: { body: "robe", legs: "robeSkirt", head: "human" },
-  knight: { body: "plate", legs: "boots", head: "human" },
-  brute: { body: "barechest", legs: "boots", head: "human" },
-  rogue: { body: "leather", legs: "boots", head: "human" },
-  beast: { body: "barechest", legs: "boots", head: "snout" },
-  bones: { body: "robe", legs: "boots", head: "skull" },
+  caster: { body: "robe", legs: "robeSkirt", head: "human", headwear: "pointedHat", weapon: "staff" },
+  knight: { body: "plate", legs: "greaves", head: "human", headwear: "helm", weapon: "sword", offhand: "shield" },
+  brute: { body: "barechest", legs: "boots", head: "human", headwear: "horned", weapon: "axe" },
+  rogue: { body: "leather", legs: "boots", head: "human", headwear: "hood", weapon: "dagger" },
+  beast: { body: "barechest", legs: "clawFeet", head: "snout", headwear: null, weapon: "club" },
+  bones: { body: "robe", legs: "robeSkirt", head: "skull", headwear: null, weapon: "scythe" },
 };
 
 const FALLBACK: CardRecipe = { body: "leather", legs: "boots", head: "human", face: "faceCurious" };

@@ -6,9 +6,13 @@
  * Малює фон фракції, поверх нього фігуру, зібрану з деталей за рецептом,
  * і зверху одну вуаль, що реагує на тему.
  *
- * `preserveAspectRatio="xMidYMin slice"` — обрізка йде знизу, тож голова завжди
- * в кадрі, а ноги зникають першими на низькому арт-боксі. Саме це дозволяє
- * одному холсту 100×140 обслуговувати і 47×64, і 124×112.
+ * `preserveAspectRatio="xMidYMid meet"` — фігура вписується цілком.
+ *
+ * Спершу тут стояв `slice`, і це була помилка розрахунку: арт-бокс на всіх
+ * розмірах ширший, ніж вищий (наприклад 124×116 на xlarge), тож обрізка знизу
+ * з'їдала все нижче y≈78 зі 140 — ноги не було видно взагалі на жодному розмірі.
+ * З `meet` фігура вужча, зате видно її повністю, а порожнечу з боків заповнює
+ * фон, навмисно намальований ширшим за viewBox.
  */
 
 import { memo } from "react";
@@ -21,6 +25,10 @@ import { ART_VIEWBOX, type Palette } from "./types";
 
 const { w: VW, h: VH } = ART_VIEWBOX;
 
+/** Фон навмисно ширший за viewBox: із `meet` він має закрити поля з боків. */
+const BG_X = -100;
+const BG_W = VW + 200;
+
 /**
  * Фон: чотири плоскі прямокутники замість `<linearGradient>`.
  * Градієнту потрібен `id`, а ідентифікатори заборонені — на екрані до 70 карт,
@@ -29,10 +37,10 @@ const { w: VW, h: VH } = ART_VIEWBOX;
 function Background({ p }: { p: Palette }) {
   return (
     <g>
-      <rect x={0} y={0} width={VW} height={VH} fill={p.bgFrom} />
-      <rect x={0} y={63} width={VW} height={VH - 63} fill={p.bgTo} opacity={0.4} />
-      <rect x={0} y={91} width={VW} height={VH - 91} fill={p.bgTo} opacity={0.7} />
-      <rect x={0} y={112} width={VW} height={VH - 112} fill={p.bgTo} />
+      <rect x={BG_X} y={-40} width={BG_W} height={VH + 80} fill={p.bgFrom} />
+      <rect x={BG_X} y={63} width={BG_W} height={VH} fill={p.bgTo} opacity={0.4} />
+      <rect x={BG_X} y={91} width={BG_W} height={VH} fill={p.bgTo} opacity={0.7} />
+      <rect x={BG_X} y={112} width={BG_W} height={VH} fill={p.bgTo} />
     </g>
   );
 }
@@ -64,7 +72,7 @@ export const CardArt = memo(function CardArt({
   return (
     <svg
       viewBox={`0 0 ${VW} ${VH}`}
-      preserveAspectRatio="xMidYMin slice"
+      preserveAspectRatio="xMidYMid meet"
       width="100%"
       height="100%"
       role="presentation"
@@ -84,7 +92,7 @@ export const CardArt = memo(function CardArt({
       })}
 
       {/* Вуаль теми — єдине, що тут реагує на світлу/темну тему. */}
-      <rect x={0} y={0} width={VW} height={VH} fill="var(--card-art-veil)" />
+      <rect x={BG_X} y={-40} width={BG_W} height={VH + 80} fill="var(--card-art-veil)" />
     </svg>
   );
 });

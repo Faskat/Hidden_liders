@@ -144,7 +144,7 @@ export function GameCard({
         className="text-[#1e3a5f]/80 flex-1 space-y-0.5 min-h-0 overflow-hidden"
         style={{ fontSize: spec.footerFontPx }}
       >
-        {abilityLabel && (
+        {abilityLabel && spec.showAbility && (
           <div
             className={`font-medium text-[#1e3a5f]/90 break-words ${spec.abilityLines === 2 ? "line-clamp-2" : "line-clamp-3"}`}
           >

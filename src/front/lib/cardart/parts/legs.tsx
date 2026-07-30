@@ -34,6 +34,50 @@ export const boots: PartComponent = ({ p, lod }) => {
   );
 };
 
+/** Латні поножі: наколінники й металеві гомілки. */
+export const greaves: PartComponent = ({ p, lod }) => {
+  const s = lod >= 1 ? p.ink : "none";
+  return (
+    <g strokeWidth={INK} strokeLinejoin="round">
+      <path d="M37 94 L48 94 L47 116 L38 116 Z" fill={p.cloth} stroke={s} />
+      <path d="M63 94 L52 94 L53 116 L62 116 Z" fill={p.cloth} stroke={s} />
+      <path d="M36 112 L48 112 L48 122 L36 122 Z" fill={p.metal} stroke={s} />
+      <path d="M64 112 L52 112 L52 122 L64 122 Z" fill={p.metal} stroke={s} />
+      <path d="M37 120 L48 120 L48 132 L30 134 L34 124 Z" fill={p.metalShade} stroke={s} />
+      <path d="M63 120 L52 120 L52 132 L70 134 L66 124 Z" fill={p.metalShade} stroke={s} />
+      {lod >= 2 && (
+        <g stroke={p.ink} fill="none" strokeWidth={0.9} opacity={0.4}>
+          <path d="M38 126 L46 126" />
+          <path d="M62 126 L54 126" />
+        </g>
+      )}
+    </g>
+  );
+};
+
+/** Пальцехідні лапи зі зворотним коліном і кігтями. */
+export const clawFeet: PartComponent = ({ p, lod }) => {
+  const s = lod >= 1 ? p.ink : "none";
+  return (
+    <g strokeWidth={INK} strokeLinejoin="round">
+      <path d="M38 94 L48 94 L46 110 L39 124 L47 129 L31 131 L33 116 Z" fill={p.skin} stroke={s} />
+      <path d="M62 94 L52 94 L54 110 L61 124 L53 129 L69 131 L67 116 Z" fill={p.skin} stroke={s} />
+      <g fill={p.ink} opacity={0.8}>
+        <path d="M31 131 L25 136 L32 133 Z" />
+        <path d="M36 131 L32 137 L39 133 Z" />
+        <path d="M69 131 L75 136 L68 133 Z" />
+        <path d="M64 131 L68 137 L61 133 Z" />
+      </g>
+      {lod >= 2 && (
+        <g stroke={p.ink} fill="none" strokeWidth={0.9} opacity={0.35}>
+          <path d="M40 100 L44 100" />
+          <path d="M60 100 L56 100" />
+        </g>
+      )}
+    </g>
+  );
+};
+
 /** Поділ мантії: трапеція до землі, ніг не видно. */
 export const robeSkirt: PartComponent = ({ p, lod }) => {
   const s = lod >= 1 ? p.ink : "none";
