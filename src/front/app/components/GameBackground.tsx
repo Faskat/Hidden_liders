@@ -9,7 +9,14 @@ const IMG = {
   sixLeaders: "/images/six_leaders_hidden_leaders_2.avif",
 } as const;
 
-const ORB_COUNT = 4;
+// Стартові позиції фіксовані: Math.random() на сервері й на клієнті дає різні
+// значення і ламає гідратацію. Рандом вмикаємо вже після монтування.
+const ORB_START = [
+  { x: 25, y: 30 },
+  { x: 70, y: 25 },
+  { x: 35, y: 70 },
+  { x: 75, y: 65 },
+];
 const ORB_UPDATE_MS = 7000;
 const ORB_CYCLE_SEC = 7;
 const ORB_PEAK_OPACITY = 0.13;
@@ -28,11 +35,7 @@ export default function GameBackground() {
   const [mouse, setMouse] = useState({ x: 50, y: 50 });
   const [mounted, setMounted] = useState(false);
   const [orbs, setOrbs] = useState<Array<{ id: number; x: number; y: number }>>(() =>
-    Array.from({ length: ORB_COUNT }, (_, i) => ({
-      id: i,
-      x: randomPercent(),
-      y: randomPercent(),
-    }))
+    ORB_START.map((o, i) => ({ id: i, ...o }))
   );
   const orbRefs = useRef<(HTMLDivElement | null)[]>([]);
   const rafRef = useRef<number>(0);
@@ -44,11 +47,12 @@ export default function GameBackground() {
 
   useEffect(() => {
     if (!mounted) return;
-    const interval = setInterval(() => {
+    const shuffle = () =>
       setOrbs((prev) =>
         prev.map((o) => ({ ...o, x: randomPercent(), y: randomPercent() }))
       );
-    }, ORB_UPDATE_MS);
+    shuffle();
+    const interval = setInterval(shuffle, ORB_UPDATE_MS);
     return () => clearInterval(interval);
   }, [mounted]);
 
