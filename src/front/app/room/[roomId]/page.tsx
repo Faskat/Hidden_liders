@@ -839,15 +839,17 @@ export default function RoomPage() {
             <CurrentVictor redMarker={s.red_marker} greenMarker={s.green_marker} compact playedCount={playedCardsCount} />
             <div className="flex items-center gap-2 ml-auto">
               <div className="relative z-[9999] flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => handleCommand("EndGame", {})}
-                  disabled={loading}
-                  className="cursor-pointer text-xs text-[var(--text-muted)] hover:text-[var(--red)] border border-[var(--text-muted)]/30 hover:border-[var(--red)]/50 px-2 py-1 rounded transition-colors"
-                  title="Тільки для тесту: завершити гру одразу"
-                >
-                  Завершити гру
-                </button>
+                {isCreatorNow && (
+                  <button
+                    type="button"
+                    onClick={() => handleCommand("EndGame", {})}
+                    disabled={loading}
+                    className="cursor-pointer text-xs text-[var(--text-muted)] hover:text-[var(--red)] border border-[var(--text-muted)]/30 hover:border-[var(--red)]/50 px-2 py-1 rounded transition-colors"
+                    title="Тільки для тесту: завершити гру одразу"
+                  >
+                    Завершити гру
+                  </button>
+                )}
                 <button type="button" onClick={() => setRulesOpen(true)} className="cursor-pointer link-muted text-sm hover:underline">
                   Як грати
                 </button>

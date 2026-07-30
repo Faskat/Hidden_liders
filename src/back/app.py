@@ -464,6 +464,8 @@ def post_command(
             cmd_name = (body.command or "").strip()
             # EndGame — тестова команда (примусово завершити гру); перевіряємо першим і приймаємо будь-який регістр
             if cmd_name.lower() == "endgame":
+                if session.state.creator_player_id != player_id:
+                    raise HTTPException(403, detail={"code": "NOT_CREATOR", "message": "Лише власник кімнати може завершити гру"})
                 if session.state.game_ended:
                     view = project_state_for_player(session.state, player_id)
                     return {"state": view}
