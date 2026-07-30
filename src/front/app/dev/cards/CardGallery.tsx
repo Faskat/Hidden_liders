@@ -14,9 +14,11 @@
 import { useState } from "react";
 import { GameCard } from "@/app/room/[roomId]/Card";
 import { CARD_SIZES, type CardSizeToken } from "@/lib/cardSizes";
-import { listParts } from "@/lib/cardart/registry";
+import { getPart, listParts } from "@/lib/cardart/registry";
 import { getPalette } from "@/lib/cardart/palette";
-import { ANCHORS, ART_VIEWBOX, type Lod } from "@/lib/cardart/types";
+import { matchArchetype, matchMood } from "@/lib/cardart/keywords";
+import { deriveRecipe } from "@/lib/cardart/recipe";
+import { ANCHORS, ART_VIEWBOX, SLOT_ORDER, type Lod, type Slot } from "@/lib/cardart/types";
 import {
   GALLERY_CATALOG,
   GALLERY_FACTIONS,
@@ -65,6 +67,51 @@ function Control<T extends string | number>({
   );
 }
 
+/**
+ * Інваріант покриття. Тест-раннера в проєкті немає взагалі (ні jest, ні vitest),
+ * тому рантайм-банер — найдешевше місце для цієї перевірки.
+ */
+function coverage() {
+  const all = [...GALLERY_HEROES, ...GALLERY_LEADERS, GALLERY_JOKER];
+  let archetypes = 0;
+  let moods = 0;
+  const unknownParts: string[] = [];
+  for (const c of all) {
+    if (matchArchetype(c.name)) archetypes++;
+    if (matchMood(c.name)) moods++;
+    const { recipe } = deriveRecipe(c.name);
+    for (const slot of SLOT_ORDER) {
+      const id = recipe[slot as Slot];
+      if (id && !getPart(slot, id)) unknownParts.push(`${c.name}: ${slot}.${id}`);
+    }
+  }
+  return { total: GALLERY_HEROES.length, archetypes, moods, unknownParts };
+}
+
+function CoverageBanner() {
+  const c = coverage();
+  // Лідери й джокер отримують рецепти вручну, тому в знаменнику лише герої.
+  // Настрій «curious» — законне значення за замовчуванням, а не промах: у банері
+  // він рахується окремо і банер від нього не червоніє. Червоніють лише реальні
+  // проблеми — герой без архетипу або рецепт, що посилається на неіснуючу деталь.
+  const ok = c.archetypes >= c.total && c.unknownParts.length === 0;
+  return (
+    <div
+      className="text-xs mb-4 px-3 py-2 rounded border"
+      style={{
+        borderColor: ok ? "var(--green)" : "var(--red)",
+        background: ok ? "rgba(61,143,61,0.12)" : "rgba(184,74,74,0.15)",
+      }}
+    >
+      архетипів {c.archetypes}/{c.total} · настрій за ключовим словом {c.moods}/{c.total},
+      решта — «curious» за замовчуванням · невідомих деталей {c.unknownParts.length}
+      {c.unknownParts.length > 0 && (
+        <div className="mt-1 text-[var(--red)]">{c.unknownParts.slice(0, 8).join(" · ")}</div>
+      )}
+    </div>
+  );
+}
+
 function CardCell({
   card,
   size,
@@ -95,9 +142,24 @@ function CardCell({
           />
         </div>
       </div>
-      <span className="text-[9px] text-[var(--text-muted)] text-center max-w-[120px] leading-tight">
-        {card.cardId}
-      </span>
+      <RecipeDebug name={card.name} cardId={card.cardId} />
+    </div>
+  );
+}
+
+/** Без цього неможливо налаштовувати таблицю ключових слів: не видно «чому саме так». */
+function RecipeDebug({ name, cardId }: { name: string; cardId: string }) {
+  const { recipe, archetype, mood } = deriveRecipe(name);
+  const parts = SLOT_ORDER.map((s) => recipe[s as Slot]).filter(Boolean).join(" ");
+  return (
+    <div className="text-[9px] text-[var(--text-muted)] text-center max-w-[130px] leading-tight">
+      <div>{cardId}</div>
+      <div className="text-[var(--accent)]">
+        {archetype}
+        {matchArchetype(name) ? "" : "?"} · {mood}
+        {matchMood(name) ? "" : "?"}
+      </div>
+      <div className="opacity-70">{parts}</div>
     </div>
   );
 }
@@ -203,9 +265,19 @@ function PartsTab({ lod }: { lod: Lod }) {
   );
 }
 
-export function CardGallery() {
-  const [tab, setTab] = useState<"cards" | "parts">("cards");
-  const [size, setSize] = useState<CardSizeToken>("small");
+export function CardGallery({
+  initialTab,
+  initialSize,
+}: {
+  initialTab?: string;
+  initialSize?: string;
+} = {}) {
+  const [tab, setTab] = useState<"cards" | "parts">(initialTab === "parts" ? "parts" : "cards");
+  const [size, setSize] = useState<CardSizeToken>(
+    initialSize && (SIZES as string[]).includes(initialSize)
+      ? (initialSize as CardSizeToken)
+      : "small"
+  );
   const [rotation, setRotation] = useState(0);
   const [zoom, setZoom] = useState(1);
   const [lod, setLod] = useState<Lod>(2);
@@ -235,10 +307,11 @@ export function CardGallery() {
         )}
       </div>
 
-      <p className="text-xs text-[var(--text-muted)] mb-4">
+      <p className="text-xs text-[var(--text-muted)] mb-2">
         {GALLERY_HEROES.length} героїв · {GALLERY_LEADERS.length} лідерів · джокер ·{" "}
         {partCount} деталей у реєстрі
       </p>
+      <CoverageBanner />
 
       {tab === "cards" ? <CardsTab size={size} rotation={rotation} zoom={zoom} /> : <PartsTab lod={lod} />}
     </main>

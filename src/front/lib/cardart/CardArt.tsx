@@ -13,7 +13,10 @@
 
 import { memo } from "react";
 import type { CardSizeToken } from "../cardSizes";
+import { ART_LOD } from "./lod";
 import { getLeaderPalette, getPalette } from "./palette";
+import { recipeSlots, resolveRecipe } from "./recipe";
+import { getPart } from "./registry";
 import { ART_VIEWBOX, type Palette } from "./types";
 
 const { w: VW, h: VH } = ART_VIEWBOX;
@@ -47,6 +50,7 @@ export type CardArtProps = {
 export const CardArt = memo(function CardArt({
   artKey,
   faction,
+  size,
   fraction1,
   fraction2,
 }: CardArtProps) {
@@ -54,6 +58,8 @@ export const CardArt = memo(function CardArt({
   const palette = isLeader
     ? getLeaderPalette(artKey, fraction1, fraction2)
     : getPalette(artKey, faction);
+  const { lod, slots } = ART_LOD[size];
+  const recipe = resolveRecipe(artKey);
 
   return (
     <svg
@@ -65,6 +71,18 @@ export const CardArt = memo(function CardArt({
       style={{ display: "block" }}
     >
       <Background p={palette} />
+
+      {recipeSlots(recipe, slots).map(([slot, id]) => {
+        const Part = getPart(slot, id);
+        if (!Part) {
+          if (process.env.NODE_ENV !== "production") {
+            console.warn(`[cardart] невідома деталь ${slot}.${id} (карта «${artKey}»)`);
+          }
+          return null;
+        }
+        return <Part key={slot} p={palette} lod={lod} />;
+      })}
+
       {/* Вуаль теми — єдине, що тут реагує на світлу/темну тему. */}
       <rect x={0} y={0} width={VW} height={VH} fill="var(--card-art-veil)" />
     </svg>
