@@ -91,6 +91,48 @@ export const horned: PartComponent = ({ p, lod }) => {
   );
 };
 
+/** Бандана: простолюд, пірати, робітники. */
+export const bandana: PartComponent = ({ p, lod }) => {
+  const s = lod >= 1 ? p.ink : "none";
+  return (
+    <g strokeWidth={INK} strokeLinejoin="round">
+      <path d="M35 24 L36 14 L50 9 L64 14 L65 24 Z" fill={p.cloth} stroke={s} />
+      <path d="M65 20 L76 24 L72 30 L64 25 Z" fill={p.clothShade} stroke={s} />
+      {lod >= 2 && (
+        <g stroke={p.ink} fill="none" strokeWidth={0.9} opacity={0.35}>
+          <path d="M42 13 L43 23" />
+          <path d="M50 11 L50 23" />
+          <path d="M58 13 L57 23" />
+        </g>
+      )}
+    </g>
+  );
+};
+
+/** Вузол волосся: шамани, мисливці, аскети. */
+export const topknot: PartComponent = ({ p, lod }) => {
+  const s = lod >= 1 ? p.ink : "none";
+  return (
+    <g strokeWidth={INK} strokeLinejoin="round">
+      <path d="M37 22 L38 15 L50 10 L62 15 L63 22 Z" fill={p.skinShade} stroke={s} />
+      <path d="M46 10 L54 10 L56 2 L50 -2 L44 2 Z" fill={p.skinShade} stroke={s} />
+      <path d="M45 8 L55 8 L55 12 L45 12 Z" fill={p.trim} stroke={s} strokeWidth={1} />
+    </g>
+  );
+};
+
+/** Крислатий капелюх: мандрівники, наглядачі, слідопити. */
+export const wideBrim: PartComponent = ({ p, lod }) => {
+  const s = lod >= 1 ? p.ink : "none";
+  return (
+    <g strokeWidth={INK} strokeLinejoin="round">
+      <path d="M38 18 L38 8 L50 3 L62 8 L62 18 Z" fill={p.cloth} stroke={s} />
+      <path d="M18 18 L82 18 L78 25 L22 25 Z" fill={p.clothShade} stroke={s} />
+      <path d="M38 14 L62 14 L62 18 L38 18 Z" fill={p.trim} stroke={s} strokeWidth={1} />
+    </g>
+  );
+};
+
 /**
  * Кістяна маска: Voodoo Witch.
  * Єдиний убір, що навмисно заходить на очі — маска й має їх закривати, тому

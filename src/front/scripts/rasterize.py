@@ -211,6 +211,59 @@ def flatten_path(d: str) -> list[tuple[list[tuple[float, float]], bool]]:
 # Малювання
 # --------------------------------------------------------------------------- #
 
+# --------------------------------------------------------------------------- #
+# Афінні перетворення
+#
+# Композитор арту масштабує фігуру, дзеркалить її і окремо змінює розмір голови,
+# тож без підтримки transform растеризатор показував би зовсім не те, що браузер.
+# --------------------------------------------------------------------------- #
+
+IDENTITY = (1.0, 0.0, 0.0, 1.0, 0.0, 0.0)
+
+
+def mat_mul(m, n):
+    a1, b1, c1, d1, e1, f1 = m
+    a2, b2, c2, d2, e2, f2 = n
+    return (
+        a1 * a2 + c1 * b2,
+        b1 * a2 + d1 * b2,
+        a1 * c2 + c1 * d2,
+        b1 * c2 + d1 * d2,
+        a1 * e2 + c1 * f2 + e1,
+        b1 * e2 + d1 * f2 + f1,
+    )
+
+
+def apply(m, x, y):
+    a, b, c, d, e, f = m
+    return (a * x + c * y + e, b * x + d * y + f)
+
+
+def parse_transform(s: str):
+    m = IDENTITY
+    for name, args in re.findall(r"(translate|scale|matrix|rotate)\s*\(([^)]*)\)", s or ""):
+        v = [float(t) for t in re.split(r"[\s,]+", args.strip()) if t]
+        if name == "translate":
+            m = mat_mul(m, (1, 0, 0, 1, v[0], v[1] if len(v) > 1 else 0))
+        elif name == "scale":
+            sx = v[0]
+            sy = v[1] if len(v) > 1 else sx
+            m = mat_mul(m, (sx, 0, 0, sy, 0, 0))
+        elif name == "matrix":
+            m = mat_mul(m, tuple(v[:6]))
+        elif name == "rotate":
+            r = math.radians(v[0])
+            cs, sn = math.cos(r), math.sin(r)
+            m = mat_mul(m, (cs, sn, -sn, cs, 0, 0))
+    return m
+
+
+def mat_scale(m) -> float:
+    """Середній масштаб — для товщини ліній і радіусів кіл."""
+    a, b, c, d = m[0], m[1], m[2], m[3]
+    return (math.hypot(a, b) + math.hypot(c, d)) / 2
+
+
 def draw_shape(
     draw: ImageDraw.ImageDraw,
     subpaths: list[tuple[list[tuple[float, float]], bool]],
@@ -218,57 +271,65 @@ def draw_shape(
     stroke,
     width: float,
     k: float,
+    m,
 ):
     for pts, closed in subpaths:
-        sp = [(x * k, y * k) for x, y in pts]
+        sp = [tuple(v * k for v in apply(m, x, y)) for x, y in pts]
         if fill and len(sp) > 2:
             draw.polygon(sp, fill=fill)
         if stroke and width > 0:
-            draw.line(sp, fill=stroke, width=max(1, round(width * k)), joint="curve")
+            draw.line(sp, fill=stroke, width=max(1, round(width * k * mat_scale(m))), joint="curve")
 
 
-def render_element(el, draw, k, inherited):
+def render_element(el, draw, k, inherited, m=IDENTITY):
     tag = el.tag.replace(SVG_NS, "")
     op = float(el.get("opacity", 1)) * inherited["opacity"]
     fill_raw = el.get("fill", inherited["fill"])
     stroke_raw = el.get("stroke", inherited["stroke"])
     sw = float(el.get("stroke-width", inherited["stroke-width"]))
+    if el.get("transform"):
+        m = mat_mul(m, parse_transform(el.get("transform")))
 
     fill = parse_color(fill_raw, op * float(el.get("fill-opacity", 1)))
     stroke = parse_color(stroke_raw, op * float(el.get("stroke-opacity", 1)))
+    lw = max(1, round(sw * k * mat_scale(m)))
 
     if tag == "g":
         child_ctx = {"fill": fill_raw, "stroke": stroke_raw, "stroke-width": sw, "opacity": op}
         for child in el:
-            render_element(child, draw, k, child_ctx)
+            render_element(child, draw, k, child_ctx, m)
         return
 
     if tag == "rect":
         x, y = float(el.get("x", 0)), float(el.get("y", 0))
         w, h = float(el.get("width", 0)), float(el.get("height", 0))
+        corners = [(x, y), (x + w, y), (x + w, y + h), (x, y + h)]
+        pts = [tuple(v * k for v in apply(m, cx, cy)) for cx, cy in corners]
         if fill:
-            draw.rectangle([x * k, y * k, (x + w) * k, (y + h) * k], fill=fill)
+            draw.polygon(pts, fill=fill)
         if stroke and sw > 0:
-            draw.rectangle([x * k, y * k, (x + w) * k, (y + h) * k],
-                           outline=stroke, width=max(1, round(sw * k)))
-    elif tag == "circle":
-        cx, cy, r = float(el.get("cx", 0)), float(el.get("cy", 0)), float(el.get("r", 0))
-        box = [(cx - r) * k, (cy - r) * k, (cx + r) * k, (cy + r) * k]
-        draw.ellipse(box, fill=fill, outline=stroke, width=max(1, round(sw * k)) if stroke else 0)
-    elif tag == "ellipse":
+            draw.line(pts + [pts[0]], fill=stroke, width=lw)
+    elif tag in ("circle", "ellipse"):
         cx, cy = float(el.get("cx", 0)), float(el.get("cy", 0))
-        rx, ry = float(el.get("rx", 0)), float(el.get("ry", 0))
-        draw.ellipse([(cx - rx) * k, (cy - ry) * k, (cx + rx) * k, (cy + ry) * k],
-                     fill=fill, outline=stroke, width=max(1, round(sw * k)) if stroke else 0)
+        if tag == "circle":
+            rx = ry = float(el.get("r", 0))
+        else:
+            rx, ry = float(el.get("rx", 0)), float(el.get("ry", 0))
+        tx, ty = apply(m, cx, cy)
+        s = mat_scale(m)
+        box = [(tx - rx * s) * k, (ty - ry * s) * k, (tx + rx * s) * k, (ty + ry * s) * k]
+        draw.ellipse(box, fill=fill, outline=stroke, width=lw if stroke else 0)
     elif tag == "line":
         x1, y1 = float(el.get("x1", 0)), float(el.get("y1", 0))
         x2, y2 = float(el.get("x2", 0)), float(el.get("y2", 0))
         if stroke:
-            draw.line([x1 * k, y1 * k, x2 * k, y2 * k], fill=stroke, width=max(1, round(sw * k)))
+            p1 = tuple(v * k for v in apply(m, x1, y1))
+            p2 = tuple(v * k for v in apply(m, x2, y2))
+            draw.line([p1, p2], fill=stroke, width=lw)
     elif tag == "path":
         d = el.get("d")
         if d:
-            draw_shape(draw, flatten_path(d), fill, stroke, sw if stroke else 0, k)
+            draw_shape(draw, flatten_path(d), fill, stroke, sw if stroke else 0, k, m)
 
 
 def render_svg(svg_text: str, out_w: int, bg=(203, 198, 187)) -> Image.Image:

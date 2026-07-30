@@ -103,6 +103,54 @@ export const leather: PartComponent = ({ p, lod }) => {
   );
 };
 
+/** Огрядний торс: широкий живіт, короткі руки. */
+export const bulky: PartComponent = ({ p, lod }) => {
+  const s = lod >= 1 ? p.ink : "none";
+  return (
+    <g strokeWidth={INK} strokeLinejoin="round">
+      <path d="M35 58 L26 62 L18 82 L18 90 L27 92 L31 84 L40 68 Z" fill={p.clothShade} stroke={s} />
+      <path d="M65 58 L74 62 L82 82 L82 90 L73 92 L69 84 L60 68 Z" fill={p.clothShade} stroke={s} />
+      <g fill={p.skin} stroke={s}>
+        <circle cx={23} cy={91} r={4.5} />
+        <circle cx={77} cy={91} r={4.5} />
+      </g>
+      <path d="M42 50 L58 50 L70 62 L72 84 L66 96 L34 96 L28 84 L30 62 Z" fill={p.cloth} stroke={s} />
+      <path d="M32 80 L68 80 L68 88 L32 88 Z" fill={p.skinShade} stroke={s} />
+      <path d="M45 81 L55 81 L55 87 L45 87 Z" fill={p.trim} stroke={s} strokeWidth={1} />
+      {lod >= 2 && (
+        <g stroke={p.ink} fill="none" strokeWidth={0.9} opacity={0.35}>
+          <path d="M40 62 L38 78" />
+          <path d="M60 62 L62 78" />
+        </g>
+      )}
+    </g>
+  );
+};
+
+/** Сутула постать: голова подана вперед, спина горбиться. */
+export const hunched: PartComponent = ({ p, lod }) => {
+  const s = lod >= 1 ? p.ink : "none";
+  return (
+    <g strokeWidth={INK} strokeLinejoin="round">
+      <path d="M38 58 L30 62 L22 86 L21 93 L29 94 L33 86 L42 68 Z" fill={p.clothShade} stroke={s} />
+      <path d="M64 60 L72 66 L79 86 L79 92 L71 93 L67 85 L60 70 Z" fill={p.clothShade} stroke={s} />
+      <g fill={p.skin} stroke={s}>
+        <circle cx={25} cy={93} r={4} />
+        <circle cx={75} cy={92} r={4} />
+      </g>
+      {/* Горб вище лінії плечей — саме він читається як сутулість. */}
+      <path d="M42 50 L58 50 L68 56 L66 70 L62 96 L38 96 L34 70 L34 58 Z" fill={p.cloth} stroke={s} />
+      <path d="M56 52 L68 54 L70 66 L58 62 Z" fill={p.clothShade} stroke={s} />
+      {lod >= 2 && (
+        <g stroke={p.ink} fill="none" strokeWidth={0.9} opacity={0.35}>
+          <path d="M40 70 L38 92" />
+          <path d="M58 72 L60 92" />
+        </g>
+      )}
+    </g>
+  );
+};
+
 /** Грудна клітка: хребет, ребра, таз. Скелети. */
 export const ribcage: PartComponent = ({ p, lod }) => {
   const s = lod >= 1 ? p.ink : "none";

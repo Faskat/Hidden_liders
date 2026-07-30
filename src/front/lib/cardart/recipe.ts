@@ -14,9 +14,10 @@
  * карта, що була до появи арту.
  */
 
+import { fnv1a } from "./hash";
 import { deriveArchetype, deriveMood, type Archetype, type Mood } from "./keywords";
-import type { CardRecipe } from "./registry";
-import type { Slot } from "./types";
+import type { CardRecipe, PartIdFor } from "./registry";
+import { SLOT_ORDER, type Slot } from "./types";
 
 const MOOD_FACE: Record<Mood, CardRecipe["face"]> = {
   angry: "faceAngry",
@@ -24,18 +25,81 @@ const MOOD_FACE: Record<Mood, CardRecipe["face"]> = {
   curious: "faceCurious",
 };
 
+/** Набір допустимих деталей на слот. Конкретна обирається від хешу імені карти. */
+type RecipeOptions = { [S in Slot]?: readonly (PartIdFor<S> | null)[] };
+
 /**
- * Базовий вигляд архетипу. Розширюється з кожним етапом: убори та зброя
- * додаються, щойно з'являються відповідні деталі.
+ * Базовий вигляд архетипу — не один рецепт, а набір варіантів на кожен слот.
+ *
+ * Спершу тут стояло по одній деталі на слот, і всі 14 лицарів виглядали як одна
+ * й та сама карта. Тепер лицар може бути в шоломі або бандані, з мечем або
+ * списом, кремезний або звичайний — а архетип усе одно читається.
+ *
+ * Повтор значення в списку — це вага: `["sword", "spear", "sword"]` означає, що
+ * меч трапляється удвічі частіше за спис.
  */
-const BASE: Record<Archetype, CardRecipe> = {
-  caster: { body: "robe", legs: "robeSkirt", head: "human", headwear: "pointedHat", weapon: "staff", cape: "shortCloak", fx: "sparks" },
-  knight: { body: "plate", legs: "greaves", head: "human", headwear: "helm", weapon: "sword", offhand: "shield", cape: "shortCloak" },
-  brute: { body: "barechest", legs: "boots", head: "human", headwear: "horned", weapon: "axe" },
-  rogue: { body: "leather", legs: "boots", head: "human", headwear: "hood", weapon: "dagger", cape: "shortCloak" },
-  beast: { body: "barechest", legs: "clawFeet", head: "snout", headwear: null, weapon: "club" },
-  bones: { body: "robe", legs: "robeSkirt", head: "skull", headwear: null, weapon: "scythe" },
+const BASE: Record<Archetype, RecipeOptions> = {
+  caster: {
+    body: ["robe", "robe", "hunched"],
+    legs: ["robeSkirt"],
+    head: ["human", "longHead", "bearded", "roundHead"],
+    headwear: ["pointedHat", "pointedHat", "hood", "topknot", "wideBrim"],
+    weapon: ["staff", "staff", "spear"],
+    cape: ["shortCloak", null],
+    fx: ["sparks"],
+  },
+  knight: {
+    body: ["plate", "plate", "bulky"],
+    legs: ["greaves"],
+    head: ["human", "bearded", "longHead"],
+    headwear: ["helm", "helm", "bandana"],
+    weapon: ["sword", "sword", "spear"],
+    offhand: ["shield", "shield", null],
+    cape: ["shortCloak", null],
+  },
+  brute: {
+    body: ["barechest", "bulky"],
+    legs: ["boots", "furBoots"],
+    head: ["human", "bearded", "roundHead"],
+    headwear: ["horned", "bandana", "topknot"],
+    weapon: ["axe", "club", "axe"],
+  },
+  rogue: {
+    body: ["leather", "leather", "hunched"],
+    legs: ["boots"],
+    head: ["human", "longHead", "roundHead"],
+    headwear: ["hood", "bandana", "wideBrim"],
+    weapon: ["dagger", "bow", "dagger"],
+    cape: ["shortCloak", null],
+  },
+  beast: {
+    body: ["barechest", "bulky"],
+    legs: ["clawFeet"],
+    head: ["snout", "snout", "roundHead"],
+    headwear: [null, null, "horned"],
+    weapon: ["club", "axe", "club"],
+  },
+  bones: {
+    body: ["robe", "ribcage"],
+    legs: ["robeSkirt", "boneLegs"],
+    head: ["skull", "skull", "longHead"],
+    headwear: [null, "hood", "crown"],
+    weapon: ["scythe", "scythe", "spear"],
+  },
 };
+
+/** Кожен слот бере власний потік хешу — інакше вибори йшли б синхронно. */
+function pickOptions(opts: RecipeOptions, artKey: string): CardRecipe {
+  const out: CardRecipe = {};
+  for (const slot of SLOT_ORDER) {
+    const list = opts[slot] as readonly (string | null)[] | undefined;
+    if (!list || list.length === 0) continue;
+    const chosen = list[fnv1a(`${artKey}:${slot}`) % list.length];
+    // @ts-expect-error слот і значення узгоджені за побудовою RecipeOptions
+    out[slot] = chosen;
+  }
+  return out;
+}
 
 /** Фон закріплений за фракцією — це її «місце дії». */
 const FACTION_BACKDROP: Record<string, CardRecipe["backdrop"]> = {
@@ -156,7 +220,7 @@ export function deriveRecipe(artKey: string, faction?: string): ResolvedRecipe {
   }
 
   const recipe: CardRecipe = {
-    ...applyFactionTweaks({ ...FALLBACK, ...BASE[archetype] }, faction),
+    ...applyFactionTweaks({ ...FALLBACK, ...pickOptions(BASE[archetype], artKey) }, faction),
     face: MOOD_FACE[mood],
     // Ручний виняток перебиває і архетип, і фракцію.
     ...OVERRIDES[artKey],

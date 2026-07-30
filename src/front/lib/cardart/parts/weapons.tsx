@@ -97,6 +97,30 @@ export const club: PartComponent = ({ p, lod }) => {
   );
 };
 
+/** Лук: стрільці. Найвужчий силует із усієї зброї, тому впізнається одразу. */
+export const bow: PartComponent = ({ p, lod }) => {
+  const s = lod >= 1 ? p.ink : "none";
+  return (
+    <g strokeWidth={INK} strokeLinejoin="round">
+      <path d="M30 28 Q6 62 30 118 Q18 62 30 28 Z" fill={p.metalShade} stroke={s} />
+      <path d="M30 28 L30 118" stroke={p.trim} strokeWidth={1.4} fill="none" />
+      <path d="M14 68 L44 68 L44 71 L14 71 Z" fill={p.metal} stroke={s} strokeWidth={1} />
+    </g>
+  );
+};
+
+/** Спис: вартові й списоносці. Найдовше древко, вістря аж угорі. */
+export const spear: PartComponent = ({ p, lod }) => {
+  const s = lod >= 1 ? p.ink : "none";
+  return (
+    <g strokeWidth={INK} strokeLinejoin="round">
+      <path d="M19 22 L25 22 L25 130 L19 130 Z" fill={p.metalShade} stroke={s} />
+      <path d="M22 2 L30 20 L22 26 L14 20 Z" fill={p.metal} stroke={s} />
+      <path d="M16 28 L28 28 L28 33 L16 33 Z" fill={p.trim} stroke={s} strokeWidth={1} />
+    </g>
+  );
+};
+
 /** Три клинки з однієї руків'я. Triple Sword Lizard — назва просить буквальності. */
 export const swordTriple: PartComponent = ({ p, lod }) => {
   const s = lod >= 1 ? p.ink : "none";

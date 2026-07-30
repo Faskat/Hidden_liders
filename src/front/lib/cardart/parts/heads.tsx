@@ -58,6 +58,64 @@ export const skull: PartComponent = ({ p, lod }) => (
   </g>
 );
 
+/** Кругла, м'ясиста голова: товстуни й добряки. */
+export const roundHead: PartComponent = ({ p, lod }) => (
+  <g>
+    <path
+      d="M50 9 L63 15 L67 28 L64 40 L57 47 L57 50 L43 50 L43 47 L36 40 L33 28 L37 15 Z"
+      fill={p.skin}
+      stroke={lod >= 1 ? p.ink : "none"}
+      strokeWidth={INK}
+      strokeLinejoin="round"
+    />
+    {lod >= 1 && <path d="M42 44 Q50 50 58 44" fill="none" stroke={p.skinShade} strokeWidth={1.4} />}
+    {lod >= 2 && (
+      <g stroke={p.ink} fill="none" strokeWidth={0.9} opacity={0.35}>
+        <path d="M63 26 L65 35" />
+        <path d="M60 27 L62 36" />
+      </g>
+    )}
+  </g>
+);
+
+/** Вузька витягнута голова: сухорляві типи. */
+export const longHead: PartComponent = ({ p, lod }) => (
+  <g>
+    <path
+      d="M50 6 L59 13 L61 27 L58 40 L54 48 L54 50 L46 50 L46 48 L42 40 L39 27 L41 13 Z"
+      fill={p.skin}
+      stroke={lod >= 1 ? p.ink : "none"}
+      strokeWidth={INK}
+      strokeLinejoin="round"
+    />
+    {lod >= 2 && (
+      <g stroke={p.ink} fill="none" strokeWidth={0.9} opacity={0.4}>
+        <path d="M57 24 L59 34" />
+        <path d="M44 44 L56 44" />
+      </g>
+    )}
+  </g>
+);
+
+/** Голова з бородою: старійшини, ковалі, північани. */
+export const bearded: PartComponent = ({ p, lod }) => {
+  const s = lod >= 1 ? p.ink : "none";
+  return (
+    <g strokeWidth={INK} strokeLinejoin="round">
+      <path d="M50 10 L61 15 L64 27 L62 38 L56 46 L56 50 L44 50 L44 46 L38 38 L36 27 L39 15 Z" fill={p.skin} stroke={s} />
+      {/* Борода нижче підборіддя — єдина деталь голови, що заходить на торс. */}
+      <path d="M38 34 L40 46 L44 56 L50 60 L56 56 L60 46 L62 34 L58 44 L56 40 L44 40 L42 44 Z" fill={p.skinShade} stroke={s} />
+      {lod >= 2 && (
+        <g stroke={p.ink} fill="none" strokeWidth={0.9} opacity={0.4}>
+          <path d="M45 46 L46 55" />
+          <path d="M50 47 L50 57" />
+          <path d="M55 46 L54 55" />
+        </g>
+      )}
+    </g>
+  );
+};
+
 /** Виснажене обличчя нежиті: вужче за людське, із загостреним підборіддям. */
 export const gaunt: PartComponent = ({ p, lod }) => (
   <g>
