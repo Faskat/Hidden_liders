@@ -34,8 +34,10 @@ const END = "[а-яіїєґА-ЯІЇЄҐ’']*";
 
 /** Порядок важить: перше правило, що збіглося, і спрацьовує. */
 const RULES: readonly Rule[] = [
-  { re: "[+\\u2212-]?\\d+\\s*R\\b", icon: "redMarker", replaceMarker: true },
-  { re: "[+\\u2212-]?\\d+\\s*G\\b", icon: "greenMarker", replaceMarker: true },
+  // «X» поряд із числами: у здібностях Calculation величина маркера невідома
+  // наперед і записується саме літерою.
+  { re: "[+\\u2212-]?[\\dX]+\\s*R\\b", icon: "redMarker", replaceMarker: true },
+  { re: "[+\\u2212-]?[\\dX]+\\s*G\\b", icon: "greenMarker", replaceMarker: true },
   { re: `гаван${END}`, icon: "harbor" },
   { re: `таверн${END}`, icon: "tavern" },
   { re: `цвинтар${END}`, icon: "graveyard" },

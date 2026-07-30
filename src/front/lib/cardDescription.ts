@@ -1,5 +1,14 @@
 /**
- * Short Ukrainian labels for card ability actions, conditions and marker display.
+ * Короткі українські підписи здібностей і маркерів.
+ *
+ * Підписи навмисно телеграфні. Перша версія писала повні речення
+ * («Вбити прихованого героя супротивника серед його героїв на столі»), і на
+ * карті 100×140 вони обрізалися на півслові — гравець бачив початок фрази й
+ * три крапки, що гірше за відсутність тексту.
+ *
+ * Орієнтир — друковані карти: там короткий дієслівний зворот плюс піктограма
+ * зони. Піктограми підставляє `lib/cardart/abilityIcons.tsx` за словами, тож
+ * назви зон із підписів прибирати не можна — саме до них чіпляються значки.
  */
 
 import type { AbilityDef } from "./types";
@@ -15,7 +24,7 @@ type MarkersObj = {
 const ACTION_LABELS: Record<string, string> = {
   Kill: "Вбити героя",
   Bury: "Поховати героя",
-  Guess_Kill: "Вгадати й вбити",
+  Guess_Kill: "Вгадати фракцію й вбити",
   Flip: "Перевернути карту",
   Look: "Підглянути карту",
   Flip_Or_Look: "Перевернути або підглянути",
@@ -29,10 +38,10 @@ const ACTION_LABELS: Record<string, string> = {
   Kill_Random: "Вбити випадкового",
   Kill_Dual: "Вбити двох",
   PlayExtra: "Додатковий хід",
-  Perform: "Виконати здібність героя",
-  Perform_Top: "Виконати з цвинтаря",
-  Perform_Self: "Виконати свою карту",
-  Bury_Perform: "Поховати й виконати",
+  Perform: "Повторити здібність",
+  Perform_Top: "Здібність з цвинтаря",
+  Perform_Self: "Здібність своєї карти",
+  Bury_Perform: "Поховати з таверни й повторити",
   Draw_All_Tavern: "Забрати всю таверну",
   Reveal_Harbor: "Показати гавань",
 };
@@ -54,17 +63,16 @@ function formatDrawSource(source: string | string[] | undefined): string {
   return DRAW_SOURCE_LABELS[source as string] ?? (source as string);
 }
 
-/** Target for Flip/Look: чию карту, де. */
+/** Target for Flip/Look: чию карту. */
 function formatFlipLookTarget(ability: AbilityDef): string {
   const isOther = ability.target_player === "other";
-  const inParty = ability.target_zone?.toLowerCase().includes("party");
   const faceDown = ability.visibility === "face_down" || !ability.visibility;
-  const face = faceDown ? "приховану карту" : "карту";
-  if (isOther) return `${face} супротивника${inParty ? " серед його героїв на столі" : ""}`.trim();
-  if (ability.action === "Look") {
-    return "одну зі своїх прихованих карт серед героїв на столі (побачити її). Маркери застосовуються";
-  }
-  return `${face} серед ваших героїв на столі (власну)`.trim();
+  const face = faceDown ? "приховану" : "лицьову";
+  // У «Перевернути/підглянути» саме дієслово вже займає пів рядка, тож власника
+  // карти опускаємо — ця здібність і так завжди спрямована на супротивника.
+  if (isOther) return ability.action === "Flip_Or_Look" ? face : `${face} супротивника`;
+  if (ability.action === "Look") return "свою приховану";
+  return `свою ${face}`;
 }
 
 /** Parse one Move_Markers effect e.g. "-1 leading" -> "лидируючий −1". */
@@ -73,31 +81,31 @@ function formatMoveEffect(opt: string): string {
   const match = s.match(/^([+-]?\d+)\s+(leading|behind)$/i);
   if (!match) return opt;
   const delta = match[1].startsWith("+") ? match[1] : match[1] === "0" ? "0" : `−${match[1].replace("-", "")}`;
-  const which = match[2].toLowerCase() === "leading" ? "лидируючий маркер" : "маркер той що позаду";
+  const which = match[2].toLowerCase() === "leading" ? "провідний" : "задній";
   return `${which} ${delta}`;
 }
 
 /** Human-readable condition: when the ability triggers. */
 const CONDITION_LABELS: Record<string, string> = {
   no_red_in_tavern: "Якщо в таверні немає червоних",
-  no_undead: "Якщо серед ваших героїв на столі немає невмерлих",
-  green_behind_red: "Якщо зелений маркер позаду червоного",
-  red_behind_green: "Якщо червоний маркер позаду зеленого",
-  has_red_party: "Якщо серед ваших героїв на столі є червоні",
-  has_blue_black_party: "Якщо серед ваших героїв на столі є сині/чорні",
+  no_undead: "Якщо у вас немає невмерлих",
+  green_behind_red: "Якщо зелений позаду червоного",
+  red_behind_green: "Якщо червоний позаду зеленого",
+  has_red_party: "Якщо у вас є червоні",
+  has_blue_black_party: "Якщо у вас є сині або чорні",
   has_face_down_undead: "Якщо є прихований невмерлий",
   has_face_down_green: "Якщо є прихований зелений",
 };
 
 /** What X is based on (for Calculation ability). */
 const X_SOURCE_LABELS: Record<string, string> = {
-  target_party_markers: "за кількістю героїв обраного гравця на столі",
-  target_face_up_green: "за кількістю зелених лицьовою вгору (Highlanders) серед героїв обраного гравця на столі",
-  target_face_up_blue: "за кількістю синіх лицьовою вгору (Waterfolk) серед героїв обраного гравця на столі",
-  target_face_down_count: "за кількістю прихованих героїв обраного гравця на столі",
-  graveyard_count: "за кількістю карт у цвинтарі",
-  tavern_not_red: "за кількістю не-червоних карт у таверні",
-  tavern_not_green: "за кількістю не-зелених карт у таверні",
+  target_party_markers: "за героями",
+  target_face_up_green: "за зеленими лицьовими",
+  target_face_up_blue: "за синіми лицьовими",
+  target_face_down_count: "за прихованими",
+  graveyard_count: "за картами в цвинтарі",
+  tavern_not_red: "за не-червоними в таверні",
+  tavern_not_green: "за не-зеленими в таверні",
 };
 
 /** One-line label for ability. For Calculation, pass markers so we can describe ±X and x_source. */
@@ -118,14 +126,17 @@ export function getAbilityLabel(
       "target_face_up_blue",
       "target_face_down_count",
     ].includes(xSource);
-    const suffix = needsTargetPlayer ? " При 3+ гравцях оберіть гравця." : "";
+    // Підказку «оберіть гравця» не пишемо: під час гри вона й так з'являється
+    // в діалозі вибору цілі, а на карті вона з'їдала цілий рядок.
+    const suffix = "";
+    void needsTargetPlayer;
     const parts: string[] = [];
     const r = markers?.red;
     const g = markers?.green;
-    if (r === "X" || r === "-X") parts.push(`Черв. ${r === "X" ? "+X" : "−X"}`);
-    if (g === "X" || g === "-X") parts.push(`Зел. ${g === "X" ? "+X" : "−X"}`);
-    if (parts.length) return `${parts.join(", ")} ${sourceText}.${suffix}`;
-    return `Маркери X ${sourceText}.${suffix}`;
+    if (r === "X" || r === "-X") parts.push(`${r === "X" ? "+X" : "−X"} R`);
+    if (g === "X" || g === "-X") parts.push(`${g === "X" ? "+X" : "−X"} G`);
+    if (parts.length) return `${parts.join(", ")} ${sourceText}`;
+    return `Маркери X ${sourceText}${suffix}`;
   }
   if (ability.action === "Draw") {
     const src = formatDrawSource(ability.source as string | string[] | undefined);
@@ -140,29 +151,27 @@ export function getAbilityLabel(
         ? "Перевернути"
         : ability.action === "Look"
           ? "Підглянути"
-          : "Перевернути або підглянути";
+          : "Перевернути/підглянути";
     return `${verb} ${target}`;
   }
   if (ability.action === "Guess_Kill") {
-    return "Вгадати фракцію прихованого героя супротивника серед його героїв на столі — якщо вгадали, вбити його";
+    return "Вгадати фракцію прихованої і вбити";
   }
   if (ability.action === "Kill") {
     const isOther = ability.target_player === "other";
     const faceDown = ability.visibility === "face_down" || !ability.visibility;
     const zone = ability.target_zone?.toLowerCase().includes("party") ? " на столі" : "";
     const factionFilter = ability.filters?.fraction as string | undefined;
-    const factionLabel = factionFilter ? ` (фракція ${factionFilter === "Waterfolk" ? "Водний народ" : factionFilter === "Imperials" ? "Імперія" : factionFilter === "Highlanders" ? "Племена" : factionFilter === "Undead" ? "Невмерлі" : factionFilter})` : "";
+    const factionLabel = factionFilter ? ` (${factionFilter === "Waterfolk" ? "Водні" : factionFilter === "Imperials" ? "Імперія" : factionFilter === "Highlanders" ? "Племена" : factionFilter === "Undead" ? "Невмерлі" : factionFilter})` : "";
     if (isOther) {
-      const face = faceDown ? "прихованого героя супротивника серед його героїв" : "героя супротивника серед його героїв";
-      return `Вбити ${face}${zone}`.trim();
+      return `Вбити ${faceDown ? "приховану" : "лицьову"} супротивника${factionLabel}`;
     }
-    const face = faceDown ? "одного зі своїх прихованих героїв" : "одного зі своїх героїв";
-    return `Вбити ${face}${factionLabel}${zone}`.trim();
+    return `Вбити свою ${faceDown ? "приховану" : "лицьову"}${factionLabel}`;
   }
   if (ability.action === "Bury") {
-    const who = ability.target_player === "other" ? "супротивника" : "свого";
-    const zone = ability.target_zone?.toLowerCase().includes("party") ? "серед героїв на столі" : "";
-    return `Поховати героя ${who} ${zone}`.trim();
+    return ability.target_player === "other"
+      ? "Поховати героя супротивника"
+      : "Поховати свого героя";
   }
   if (ability.action === "Kill_Dual") {
     const targets = ability.targets ?? [];
@@ -170,7 +179,7 @@ export function getAbilityLabel(
       targets.includes("self_face_down") &&
       targets.includes("other_face_down")
     ) {
-      return "Вбити одного свого прихованого героя та одного прихованого героя супротивника";
+      return "Вбити свою приховану і супротивника";
     }
   }
   if (ability.action === "Move_Markers") {
@@ -178,50 +187,46 @@ export function getAbilityLabel(
     const effects = ability.effects ?? [];
     if (options.length > 0) {
       const list = options.map(formatMoveEffect).join(" або ");
-      return options.length > 1
-        ? `Рух маркерів: оберіть — ${list}`
-        : `Рух маркерів: ${list}`;
+      return options.length > 1 ? `Оберіть: ${list}` : list;
     }
     if (effects.length > 0) {
       const list = effects.map(formatMoveEffect).join(", ");
-      return `Рух маркерів: ${list}`;
+      return list;
     }
   }
   if (ability.action === "Perform_Self") {
-    return "Виконати здібність однієї зі своїх прихованих карт серед героїв на столі (оберіть яку)";
+    return "Повторити свою приховану";
   }
   if (ability.action === "Perform") {
-    return "Виконати здібність обраного прихованого героя серед ваших героїв на столі";
+    return "Повторити приховану карту";
   }
   if (ability.action === "Perform_Top") {
-    return "Виконати здібність верхньої карти з цвинтаря";
+    return "Повторити верхню карту цвинтаря";
   }
   if (ability.action === "Bury_Perform") {
-    return "Поховати карту з таверни й виконати її здібність";
+    return "Поховати карту з таверни й повторити її";
   }
   if (ability.action === "Place") {
     const src = String(ability.source ?? "hand").toLowerCase();
     const tgt = String(ability.target ?? "Party").toLowerCase();
     const faceDown = ability.visibility === "face_down";
     if (src === "hand" && tgt.includes("party")) {
-      return faceDown
-        ? "Зіграти цю карту на стіл лицьовою вниз (приховано). Маркери застосовуються."
-        : "Покласти цю карту з руки на стіл лицьовою вгору";
+      return faceDown ? "Зіграти приховано" : "Зіграти лицьовою вгору";
     }
-    return "Викласти карту на стіл (у свій ряд героїв)";
+    return "Викласти карту на стіл";
   }
   if (ability.action === "Swap") {
     const src = String(ability.source ?? "").toLowerCase();
     const tgt = String(ability.target ?? "").toLowerCase();
     if ((src === "other_party" || src.includes("other")) && (tgt === "self_hand" || tgt.includes("hand") || tgt.includes("self"))) {
-      return "Забрати 1 лицьову карту з героїв супротивника на столі собі в руку або обміняти її на карту з вашої руки (оберіть яку)";
+      return "Забрати лицьову супротивника або обміняти";
     }
     if (src === "hand" && tgt.includes("party_face_down")) {
-      return "Обміняти карту з руки на приховану карту серед ваших героїв на столі";
+      return "Обміняти карту з руки на свою приховану";
     }
   }
   if (ability.action === "PlayExtra") {
-    return "Після гри цієї карти можна зіграти ще одного героя (додатковий хід)";
+    return "Можна зіграти ще одного героя";
   }
   return ACTION_LABELS[ability.action] ?? ability.action;
 }
@@ -250,41 +255,32 @@ export function formatMarkersShort(markers: MarkersObj): string {
     if (main.length) parts.push(main.join(" "));
     if (alt.length) parts.push(alt.join(" "));
   } else if (logic === "OR_NEG") {
+    // Позначки R і G лишаємо навмисно: на них чіпляються піктограми маркерів.
     const rNum = typeof r === "number" ? r : 0;
     const gNum = typeof g === "number" ? g : 0;
     const fmt = (n: number) => (n > 0 ? `+${n}` : n < 0 ? `−${-n}` : "0");
-    const rLabel = "черв.";
-    const gLabel = "зел.";
-    if (rNum !== 0 || gNum !== 0) {
-      const parts: string[] = [];
-      if (rNum !== 0) parts.push(`${fmt(rNum)} ${rLabel}`);
-      if (gNum !== 0) parts.push(`${fmt(gNum)} ${gLabel}`);
-      if (parts.length) {
-        const negParts: string[] = [];
-        if (rNum !== 0) negParts.push(`${fmt(-rNum)} ${rLabel}`);
-        if (gNum !== 0) negParts.push(`${fmt(-gNum)} ${gLabel}`);
-        return `${parts.join(", ")} або ${negParts.join(", ")} (на вибір)`;
-      }
-    }
-    return "Плюс або мінус (на вибір)";
+    const side = (sign: 1 | -1) =>
+      [rNum !== 0 ? `${fmt(sign * rNum)} R` : "", gNum !== 0 ? `${fmt(sign * gNum)} G` : ""]
+        .filter(Boolean)
+        .join(" ");
+    if (rNum !== 0 || gNum !== 0) return `${side(1)} або ${side(-1)}`;
+    return "Плюс або мінус";
   } else if (logic === "OR_NEG_DECIDE_LEFT") {
     const rNum = typeof r === "number" ? r : 0;
     const gNum = typeof g === "number" ? g : 0;
     const fmt = (n: number) => (n > 0 ? `+${n}` : n < 0 ? `−${-n}` : "0");
     const parts: string[] = [];
-    if (rNum !== 0) parts.push(`червоний ${fmt(rNum)} або червоний ${fmt(-rNum)}`);
-    if (gNum !== 0) parts.push(`зелений ${fmt(gNum)} або зелений ${fmt(-gNum)}`);
-    if (parts.length) return `Оберіть один варіант маркерів: ${parts.join("; ")}`;
-    return "Оберіть один з двох варіантів маркерів";
+    if (rNum !== 0) parts.push(`${fmt(rNum)} R або ${fmt(-rNum)} R`);
+    if (gNum !== 0) parts.push(`${fmt(gNum)} G або ${fmt(-gNum)} G`);
+    return parts.join(", ") || "Оберіть варіант маркерів";
   } else if (logic === "AND_OR") {
     const rNum = typeof r === "number" ? r : 0;
     const gNum = typeof g === "number" ? g : 0;
     const fmt = (n: number) => (n > 0 ? `+${n}` : n < 0 ? `−${-n}` : "0");
-    const rStr = rNum !== 0 ? `червоний ${fmt(rNum)}` : "";
-    const gStr = gNum !== 0 ? `зелений ${fmt(gNum)}` : "";
-    if (rStr && gStr) return `Маркери: оберіть ${rStr} або ${gStr}`;
-    if (rStr || gStr) return `Маркери: ${rStr || gStr}`;
-    return "Маркери: червоний або зелений (на вибір)";
+    const rStr = rNum !== 0 ? `${fmt(rNum)} R` : "";
+    const gStr = gNum !== 0 ? `${fmt(gNum)} G` : "";
+    if (rStr && gStr) return `${rStr} або ${gStr}`;
+    return rStr || gStr || "R або G";
   } else {
     if (typeof r === "number" && r !== 0) parts.push(`${r > 0 ? "+" : ""}${r} R`);
     if (typeof g === "number" && g !== 0) parts.push(`${g > 0 ? "+" : ""}${g} G`);

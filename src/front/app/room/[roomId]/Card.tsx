@@ -8,7 +8,7 @@ import { CardArt } from "@/lib/cardart/CardArt";
 import { CardBack, CARD_BACK_FIELD } from "@/lib/cardart/CardBack";
 import { FactionBadge } from "@/lib/cardart/FactionBadge";
 import { withIcons } from "@/lib/cardart/abilityIcons";
-import { FACTION_LABEL } from "./constants";
+import { displayName } from "@/lib/cardNames";
 
 export function GameCard({
   cardId,
@@ -59,16 +59,16 @@ export function GameCard({
 
   /** Ключ арту — англійське ім'я з каталогу, а не card_id: див. lib/cardart/types.ts. */
   const artKey = catalogProp?.[cardId]?.name ?? resolved?.name ?? name;
-  const spineColor = isGraveyard ? "var(--zone-graveyard-border)" : borderColor;
-  const spineLabel = faction ? FACTION_LABEL[faction] : undefined;
   const iconPx = Math.max(9, spec.footerFontPx);
-  const badgePx = Math.round(spec.nameFontPx * 1.15);
+  const badgePx = Math.round(spec.nameFontPx * 1.2);
+  /** Показуємо українською, а рушій арту й далі ключується англійською назвою. */
+  const shownName = displayName(artKey) || name;
 
   const catalogEntry = catalogProp?.[cardId];
   const abilityLabel = getAbilityLabel(catalogEntry?.ability, catalogEntry?.markers);
   const markersShort = formatMarkersShort(catalogEntry?.markers);
 
-  const tooltipParts = [name];
+  const tooltipParts = [shownName];
   if (abilityLabel) tooltipParts.push(abilityLabel);
   if (markersShort) tooltipParts.push(markersShort);
   if (!abilityLabel && !markersShort && hasMarkersOnly) tooltipParts.push("Маркери за правилами");
@@ -91,46 +91,25 @@ export function GameCard({
       title={cardTooltip}
       translate="no"
     >
-      {/* Смуга фракції: замінює собою колишню кольорову крапку в рядку імені. */}
-      <div
-        className="shrink-0 h-full flex items-center justify-center overflow-hidden"
-        style={{ width: spec.spine, background: spineColor }}
-        title={faction}
-      >
-        {isLarge && spineLabel && (
-          <span
-            aria-hidden
-            className="board-label whitespace-nowrap tracking-wider uppercase"
-            style={{
-              writingMode: "vertical-rl",
-              transform: "rotate(180deg)",
-              fontSize: Math.max(7, spec.spine - 3),
-              color: "rgba(255,255,255,0.75)",
-            }}
-          >
-            {spineLabel}
-          </span>
-        )}
-      </div>
-
       <div className="flex-1 min-w-0 flex flex-col" style={{ padding: spec.pad }}>
-      {/* Круглий бейдж фракції ліворуч від назви — як на друкованих картах. */}
-      <div className={`shrink-0 min-w-0 overflow-hidden flex items-center gap-1 ${isGraveyardSize ? "justify-center" : ""} ${isLarge ? "min-h-[1.5rem]" : ""}`}>
-        {faction && !isGraveyardSize && (
-          <FactionBadge faction={faction} size={badgePx} fraction2={resolved?.fraction_2} />
-        )}
+      {/* Назва на всю ширину. Українські назви довші за англійські, і бейдж,
+          що стояв тут поруч, з'їдав чверть рядка — тому він переїхав у кут
+          арту, як на друкованих картах. */}
+      <div className={`shrink-0 min-w-0 flex items-start ${isGraveyardSize ? "justify-center" : ""}`}>
         <span
-          className={`font-semibold notranslate block min-w-0 ${isGraveyardSize ? "leading-tight line-clamp-2 break-words text-center w-full" : "truncate"} ${isGraveyard ? "zone-graveyard-text" : "text-[#1e3a5f]"}`}
+          // `block` тут стояти не може: він перебиває display:-webkit-box, на
+          // якому тримається line-clamp, і назва мовчки росла в третій рядок.
+          className={`font-semibold notranslate min-w-0 leading-tight break-words ${spec.nameLines === 3 ? "line-clamp-3" : "line-clamp-2"} ${isGraveyardSize ? "text-center w-full" : ""} ${isGraveyard ? "zone-graveyard-text" : "text-[#1e3a5f]"}`}
           style={{ fontSize: spec.nameFontPx }}
-          title={name}
+          title={shownName}
         >
-          {name}
+          {shownName}
         </span>
       </div>
 
       {/* Арт забирає собі весь вільний простір, який раніше з'їдав рядок імені. */}
       <div
-        className="shrink-0 overflow-hidden rounded-[3px]"
+        className="shrink-0 overflow-hidden rounded-[3px] relative"
         style={{
           height: spec.artH,
           marginTop: 3,
@@ -145,6 +124,11 @@ export function GameCard({
           fraction1={resolved?.fraction_1}
           fraction2={resolved?.fraction_2}
         />
+        {faction && !isGraveyardSize && (
+          <span className="absolute" style={{ left: 2, top: 2 }}>
+            <FactionBadge faction={faction} size={badgePx} fraction2={resolved?.fraction_2} />
+          </span>
+        )}
       </div>
 
       {spec.showFooter && (
@@ -154,7 +138,9 @@ export function GameCard({
       >
         {abilityLabel && spec.showAbility && (
           <div
-            className={`font-medium text-[#1e3a5f]/90 break-words ${spec.abilityLines === 2 ? "line-clamp-2" : "line-clamp-3"}`}
+            className={`font-medium text-[#1e3a5f]/90 break-words leading-snug ${
+              spec.abilityLines === 2 ? "line-clamp-2" : spec.abilityLines === 3 ? "line-clamp-3" : "line-clamp-4"
+            }`}
           >
             {withIcons(abilityLabel, iconPx)}
           </div>
