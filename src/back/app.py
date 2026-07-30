@@ -581,10 +581,13 @@ def post_command(
 
 # Mount v1 router and CORS
 app.include_router(router)
+_cors_origins = get_cors_origins_list()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=get_cors_origins_list(),
-    allow_credentials=True,
+    allow_origins=_cors_origins,
+    # Браузер відкидає відповідь із "*" + credentials, тому вмикаємо їх
+    # лише коли CORS_ORIGINS задано явними доменами.
+    allow_credentials=_cors_origins != ["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
