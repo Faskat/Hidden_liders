@@ -97,6 +97,20 @@ export const club: PartComponent = ({ p, lod }) => {
   );
 };
 
+/** Три клинки з однієї руків'я. Triple Sword Lizard — назва просить буквальності. */
+export const swordTriple: PartComponent = ({ p, lod }) => {
+  const s = lod >= 1 ? p.ink : "none";
+  return (
+    <g strokeWidth={INK} strokeLinejoin="round">
+      <path d="M8 34 L13 44 L13 78 L4 78 L4 44 Z" fill={p.metal} stroke={s} />
+      <path d="M22 26 L27 38 L27 78 L17 78 L17 38 Z" fill={p.metal} stroke={s} />
+      <path d="M36 34 L41 44 L41 78 L32 78 L32 44 Z" fill={p.metal} stroke={s} />
+      <path d="M2 78 L43 78 L43 85 L2 85 Z" fill={p.trim} stroke={s} />
+      <path d="M18 85 L26 85 L26 97 L18 97 Z" fill={p.metalShade} stroke={s} />
+    </g>
+  );
+};
+
 /** Коса: нежить. Півмісяць леза виносимо вліво, щоб силует не плутався з посохом. */
 export const scythe: PartComponent = ({ p, lod }) => {
   const s = lod >= 1 ? p.ink : "none";

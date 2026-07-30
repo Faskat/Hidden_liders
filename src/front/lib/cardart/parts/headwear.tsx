@@ -91,6 +91,26 @@ export const horned: PartComponent = ({ p, lod }) => {
   );
 };
 
+/**
+ * Кістяна маска: Voodoo Witch.
+ * Єдиний убір, що навмисно заходить на очі — маска й має їх закривати, тому
+ * прорізи для очей намальовані прямо в ній.
+ */
+export const boneMask: PartComponent = ({ p, lod }) => {
+  const s = lod >= 1 ? p.ink : "none";
+  return (
+    <g strokeWidth={INK} strokeLinejoin="round">
+      <path d="M38 12 L62 12 L65 24 L61 38 L50 44 L39 38 L35 24 Z" fill={p.skinShade} stroke={s} />
+      <g fill={p.ink}>
+        <path d="M41 24 L48 26 L47 32 L41 30 Z" />
+        <path d="M59 24 L52 26 L53 32 L59 30 Z" />
+        <path d="M47 36 L53 36 L52 41 L48 41 Z" />
+      </g>
+      <path d="M44 6 L47 14 L41 13 Z M56 6 L53 14 L59 13 Z" fill={p.trim} stroke={s} strokeWidth={1} />
+    </g>
+  );
+};
+
 /** Корона: лідери та Проклятий імператор. */
 export const crown: PartComponent = ({ p, lod }) => {
   const s = lod >= 1 ? p.ink : "none";
