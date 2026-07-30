@@ -23,6 +23,11 @@ const MOOD_FACE: Record<Mood, CardRecipe["face"]> = {
   angry: "faceAngry",
   sad: "faceSad",
   curious: "faceCurious",
+  grim: "faceGrim",
+  tired: "faceTired",
+  smug: "faceSmug",
+  wide: "faceWide",
+  sly: "faceSly",
 };
 
 /** Набір допустимих деталей на слот. Конкретна обирається від хешу імені карти. */

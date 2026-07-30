@@ -19,10 +19,10 @@
  * розсипався б.
  */
 
-import { memo } from "react";
+import { memo, useId } from "react";
 import type { CardSizeToken } from "../cardSizes";
 import { fnv1a } from "./hash";
-import { spread } from "./color";
+import { shift, spread } from "./color";
 import { ART_LOD } from "./lod";
 import { getLeaderPalette, getPalette } from "./palette";
 import { recipeSlots, resolveRecipe } from "./recipe";
@@ -85,6 +85,49 @@ function Background({ p, v }: { p: Palette; v: Variation }) {
   );
 }
 
+/**
+ * Ролі, які отримують градієнт. Тіньові тони (`*Shade`) лишаються плоскими —
+ * вони й так грають роль тіні, а градієнт на градієнті дає бруд.
+ */
+const SHADED = ["skin", "cloth", "metal", "trim"] as const;
+
+/**
+ * Об'єм на плоских формах.
+ *
+ * Ідентифікатори градієнтів заборонені контрактом деталей — на екрані до 70
+ * карт, і однакові id зіткнулися б. Тому градієнти оголошує композитор, один
+ * набір на карту, з префіксом від `useId()`: React гарантує його унікальність
+ * і сталість між сервером і клієнтом.
+ *
+ * Деталі при цьому не змінюються взагалі: їм у палітрі просто приходить
+ * `url(#…)` замість hex.
+ */
+function GradientDefs({ p, gid }: { p: Palette; gid: string }) {
+  return (
+    <defs>
+      {SHADED.map((role) => {
+        const base = p[role];
+        // Метал блищить сильніше за тканину й шкіру.
+        const up = role === "metal" ? 0.17 : 0.1;
+        const down = role === "metal" ? 0.12 : 0.08;
+        return (
+          <linearGradient key={role} id={`${gid}-${role}`} x1="0" y1="0" x2="0.4" y2="1">
+            <stop offset="0%" stopColor={shift(base, 0, 0, up)} />
+            <stop offset="55%" stopColor={base} />
+            <stop offset="100%" stopColor={shift(base, 0, 0, -down)} />
+          </linearGradient>
+        );
+      })}
+    </defs>
+  );
+}
+
+function withGradients(p: Palette, gid: string): Palette {
+  const out = { ...p };
+  for (const role of SHADED) out[role] = `url(#${gid}-${role})`;
+  return out;
+}
+
 export type CardArtProps = {
   /** Ім'я карти з каталогу — стабільний ключ арту. */
   artKey: string;
@@ -110,6 +153,13 @@ export const CardArt = memo(function CardArt({
   const recipe = resolveRecipe(artKey, faction);
   const v = variationOf(artKey);
 
+  // На LOD 0 градієнти вимкнені: на арті 54×60 їх усе одно не видно, а це
+  // чотири зайві вузли й окремий шар растеризації на кожній із десятків карт.
+  const rawId = useId();
+  const gid = rawId.replace(/[^a-zA-Z0-9]/g, "");
+  const shaded = lod >= 1;
+  const paint = shaded ? withGradients(palette, gid) : palette;
+
   const render = ([slot, id]: [Slot, string]) => {
     const Part = getPart(slot, id);
     if (!Part) {
@@ -118,7 +168,7 @@ export const CardArt = memo(function CardArt({
       }
       return null;
     }
-    return <Part key={slot} p={palette} lod={lod} />;
+    return <Part key={slot} p={paint} lod={lod} />;
   };
 
   const used = recipeSlots(recipe, slots);
@@ -142,6 +192,7 @@ export const CardArt = memo(function CardArt({
       role="presentation"
       style={{ display: "block" }}
     >
+      {shaded && <GradientDefs p={palette} gid={gid} />}
       <Background p={palette} v={v} />
       {backdrop.map(render)}
 

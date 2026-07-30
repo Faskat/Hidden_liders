@@ -26,9 +26,18 @@ from PIL import Image, ImageDraw
 SS = 4  # суперсемплінг: PIL не згладжує, тому малюємо крупніше й зменшуємо
 SVG_NS = "{http://www.w3.org/2000/svg}"
 
-# Кольори, які приходять як CSS-змінні: растеризатор про теми не знає.
+# Кольори, які приходять як CSS-змінні: растеризатор про теми не знає, тож
+# бере значення з темної теми — саме в ній гру й дивляться за замовчуванням.
 CSS_VARS = {
     "var(--card-art-veil)": (0, 0, 0, 26),
+    "var(--red)": (184, 74, 74, 255),
+    "var(--green)": (61, 143, 61, 255),
+    "var(--faction-waterfolk)": (59, 130, 246, 255),
+    "var(--faction-undead)": (43, 43, 51, 255),
+    "var(--faction-joker)": (107, 91, 138, 255),
+    "var(--faction-leader)": (201, 162, 39, 255),
+    "var(--border)": (255, 255, 255, 15),
+    "currentColor": (30, 58, 95, 255),
 }
 
 
@@ -36,10 +45,18 @@ CSS_VARS = {
 # Кольори
 # --------------------------------------------------------------------------- #
 
-def parse_color(value: str | None, opacity: float) -> tuple[int, int, int, int] | None:
+def parse_color(value: str | None, opacity: float, grads: dict | None = None) -> tuple[int, int, int, int] | None:
     if value is None or value == "none" or value == "":
         return None
     v = value.strip()
+    if v.startswith("url(#"):
+        # Градієнт наближаємо його середнім стопом: PIL заливає лише суцільним
+        # кольором, а справжній перепад малюється окремо в draw_gradient.
+        gid = v[5:].rstrip(")")
+        stops = (grads or {}).get(gid)
+        if not stops:
+            return None
+        return parse_color(stops[len(stops) // 2], opacity)
     if v in CSS_VARS:
         r, g, b, a = CSS_VARS[v]
         return (r, g, b, int(a * opacity))
@@ -264,10 +281,50 @@ def mat_scale(m) -> float:
     return (math.hypot(a, b) + math.hypot(c, d)) / 2
 
 
+def gradient_of(value: str | None, grads: dict | None):
+    """Список кольорів-стопів, якщо заливка посилається на градієнт."""
+    if not value or not value.startswith("url(#"):
+        return None
+    return (grads or {}).get(value[5:].rstrip(")"))
+
+
+def paint_gradient(img: Image.Image, pts, stops):
+    """
+    Заливає багатокутник вертикальним градієнтом.
+
+    Свідоме спрощення: у справжніх градієнтах вектор трохи нахилений, але тут
+    він майже вертикальний, а точний нахил вимагав би попіксельного проходу —
+    надто дорого для інструмента прев'ю.
+    """
+    xs = [p[0] for p in pts]
+    ys = [p[1] for p in pts]
+    x0, y0 = int(math.floor(min(xs))), int(math.floor(min(ys)))
+    w = int(math.ceil(max(xs))) - x0 + 1
+    h = int(math.ceil(max(ys))) - y0 + 1
+    if w <= 0 or h <= 0:
+        return
+    cols = [parse_color(s, 1.0) or (0, 0, 0, 255) for s in stops]
+    strip = Image.new("RGB", (1, h))
+    sp = strip.load()
+    for y in range(h):
+        t = y / max(1, h - 1)
+        pos = t * (len(cols) - 1)
+        i = min(int(pos), len(cols) - 2)
+        f = pos - i
+        a, b = cols[i], cols[i + 1]
+        sp[0, y] = tuple(round(a[c] + (b[c] - a[c]) * f) for c in range(3))
+    grad = strip.resize((w, h))
+    mask = Image.new("L", (w, h), 0)
+    ImageDraw.Draw(mask).polygon([(x - x0, y - y0) for x, y in pts], fill=255)
+    img.paste(grad, (x0, y0), mask)
+
+
 def draw_shape(
     draw: ImageDraw.ImageDraw,
+    img: Image.Image,
     subpaths: list[tuple[list[tuple[float, float]], bool]],
     fill,
+    grad,
     stroke,
     width: float,
     k: float,
@@ -275,14 +332,19 @@ def draw_shape(
 ):
     for pts, closed in subpaths:
         sp = [tuple(v * k for v in apply(m, x, y)) for x, y in pts]
-        if fill and len(sp) > 2:
-            draw.polygon(sp, fill=fill)
+        if len(sp) > 2:
+            if grad:
+                paint_gradient(img, sp, grad)
+            elif fill:
+                draw.polygon(sp, fill=fill)
         if stroke and width > 0:
             draw.line(sp, fill=stroke, width=max(1, round(width * k * mat_scale(m))), joint="curve")
 
 
-def render_element(el, draw, k, inherited, m=IDENTITY):
+def render_element(el, draw, k, inherited, m=IDENTITY, grads=None, img=None):
     tag = el.tag.replace(SVG_NS, "")
+    if tag == "defs":
+        return
     op = float(el.get("opacity", 1)) * inherited["opacity"]
     fill_raw = el.get("fill", inherited["fill"])
     stroke_raw = el.get("stroke", inherited["stroke"])
@@ -290,14 +352,17 @@ def render_element(el, draw, k, inherited, m=IDENTITY):
     if el.get("transform"):
         m = mat_mul(m, parse_transform(el.get("transform")))
 
-    fill = parse_color(fill_raw, op * float(el.get("fill-opacity", 1)))
-    stroke = parse_color(stroke_raw, op * float(el.get("stroke-opacity", 1)))
+    fill = parse_color(fill_raw, op * float(el.get("fill-opacity", 1)), grads)
+    stroke = parse_color(stroke_raw, op * float(el.get("stroke-opacity", 1)), grads)
+    # Градієнт малюємо тільки коли фігура повністю непрозора: змішувати його з
+    # альфою PIL не вміє, а напівпрозорих градієнтів у деталях і немає.
+    grad = gradient_of(fill_raw, grads) if op >= 0.999 else None
     lw = max(1, round(sw * k * mat_scale(m)))
 
     if tag == "g":
         child_ctx = {"fill": fill_raw, "stroke": stroke_raw, "stroke-width": sw, "opacity": op}
         for child in el:
-            render_element(child, draw, k, child_ctx, m)
+            render_element(child, draw, k, child_ctx, m, grads, img)
         return
 
     if tag == "rect":
@@ -305,7 +370,9 @@ def render_element(el, draw, k, inherited, m=IDENTITY):
         w, h = float(el.get("width", 0)), float(el.get("height", 0))
         corners = [(x, y), (x + w, y), (x + w, y + h), (x, y + h)]
         pts = [tuple(v * k for v in apply(m, cx, cy)) for cx, cy in corners]
-        if fill:
+        if grad and img is not None:
+            paint_gradient(img, pts, grad)
+        elif fill:
             draw.polygon(pts, fill=fill)
         if stroke and sw > 0:
             draw.line(pts + [pts[0]], fill=stroke, width=lw)
@@ -329,7 +396,7 @@ def render_element(el, draw, k, inherited, m=IDENTITY):
     elif tag == "path":
         d = el.get("d")
         if d:
-            draw_shape(draw, flatten_path(d), fill, stroke, sw if stroke else 0, k, m)
+            draw_shape(draw, img, flatten_path(d), fill, grad, stroke, sw if stroke else 0, k, m)
 
 
 def render_svg(svg_text: str, out_w: int, bg=(203, 198, 187)) -> Image.Image:
@@ -344,18 +411,35 @@ def render_svg(svg_text: str, out_w: int, bg=(203, 198, 187)) -> Image.Image:
     # верхня вуаль стирала б увесь малюнок.
     img = Image.new("RGB", (out_w * SS, out_h * SS), bg)
     draw = ImageDraw.Draw(img, "RGBA")
-    ctx = {"fill": "#000000", "stroke": "none", "stroke-width": 1.0, "opacity": 1.0}
+
+    # Градієнти оголошує композитор — по одному набору на карту, з унікальним
+    # префіксом від useId(). Збираємо їх наперед, щоб url(#…) було чим замінити.
+    grads: dict[str, list[str]] = {}
+    for lg in root.iter(SVG_NS + "linearGradient"):
+        gid = lg.get("id")
+        if not gid:
+            continue
+        grads[gid] = [s.get("stop-color", "#000000") for s in lg.iter(SVG_NS + "stop")]
+
+    # Заливку кореневого <svg> діти успадковують — піктограми задають колір саме
+    # там, і без цього рядка вони всі малювалися б чорними.
+    ctx = {
+        "fill": root.get("fill", "#000000"),
+        "stroke": root.get("stroke", "none"),
+        "stroke-width": float(root.get("stroke-width", 1.0)),
+        "opacity": 1.0,
+    }
     for child in root:
-        render_element(child, draw, k, ctx)
+        render_element(child, draw, k, ctx, IDENTITY, grads, img)
     return img.resize((out_w, out_h), Image.LANCZOS)
 
 
 # --------------------------------------------------------------------------- #
 
-def extract_svgs(html: str) -> list[str]:
-    """SVG-и з HTML сторінки. Беремо лише холст деталей 100×140."""
+def extract_svgs(html: str, viewbox: str = "0 0 100 140") -> list[str]:
+    """SVG-и з HTML сторінки з указаним viewBox (за замовчуванням холст деталей)."""
     out = []
-    for m in re.finditer(r'<svg[^>]*viewBox="0 0 100 140"[\s\S]*?</svg>', html):
+    for m in re.finditer(r'<svg[^>]*viewBox="%s"[\s\S]*?</svg>' % re.escape(viewbox), html):
         s = m.group(0)
         if 'xmlns' not in s:
             s = s.replace("<svg", '<svg xmlns="http://www.w3.org/2000/svg"', 1)
@@ -386,9 +470,10 @@ def main() -> int:
     url, out_path = args[0], args[1]
     cols = int(flags.get("--cols", 12))
     scale = int(flags.get("--scale", 100))
+    viewbox = flags.get("--viewbox", "0 0 100 140")
 
     src = url if url.startswith("<svg") else urllib.request.urlopen(url, timeout=30).read().decode("utf-8", "replace")
-    svgs = extract_svgs(src)
+    svgs = extract_svgs(src, viewbox)
     print("знайдено SVG: %d" % len(svgs))
     images = []
     for i, s in enumerate(svgs):

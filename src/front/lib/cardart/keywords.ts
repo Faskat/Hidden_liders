@@ -11,7 +11,7 @@
  */
 
 export type Archetype = "bones" | "caster" | "beast" | "knight" | "rogue" | "brute";
-export type Mood = "angry" | "sad" | "curious";
+export type Mood = "angry" | "sad" | "curious" | "grim" | "tired" | "smug" | "wide" | "sly";
 
 /**
  * ПОРЯДОК ВАЖИТЬ — спрацьовує перший збіг, тому це масив, а не об'єкт:
@@ -46,16 +46,24 @@ export const ARCHETYPE_KEYWORDS: readonly (readonly [Archetype, readonly string[
   ]],
 ];
 
-const ANGRY = [
-  "furious", "angry", "hangry", "intimidating", "fearsome", "notorious", "insidious",
-  "ghastly", "nightmarish", "righteous", "spirited", "ace", "bludgeoning", "will-bending",
-];
-
-const SAD = [
-  "depressed", "joyless", "pessimistic", "apathetic", "sluggish", "groggy", "bored",
-  "unconfident", "doubtful", "shaky", "flailing", "aimless", "underpaid", "underestimated",
-  "modest", "short-sighted", "sun-shy", "leery", "drowned", "half-eaten", "half-headed",
-  "well-aged", "resilient",
+/**
+ * Прикметник у назві — це вираз обличчя.
+ *
+ * Спершу настроїв було три, і 72 герої дивилися одним із трьох поглядів. Вісім
+ * дають вже помітну різницю, а слова в назвах їх покривають без натяжок:
+ * «Groggy» — це не сум, а втома, «Insidious» — не лють, а хитрість.
+ *
+ * Порядок списків = пріоритет: перший збіг виграє.
+ */
+const MOOD_WORDS: readonly (readonly [Mood, readonly string[]])[] = [
+  ["angry", ["furious", "angry", "hangry", "bludgeoning", "spirited"]],
+  ["grim", ["intimidating", "fearsome", "nightmarish", "ghastly", "righteous", "notorious", "wrapped"]],
+  ["sly", ["insidious", "will-bending", "voodoo", "underestimated", "underpaid", "apish", "whiskered"]],
+  ["smug", ["ace", "gorgeous", "queer", "modest", "resilient", "well-aged", "androgynous"]],
+  ["tired", ["groggy", "sluggish", "apathetic", "bored", "aimless", "half-eaten", "unconfident", "drowned"]],
+  ["wide", ["shaky", "leery", "sun-shy", "short-sighted", "flailing", "half-headed", "doubtful"]],
+  ["sad", ["depressed", "joyless", "pessimistic", "bony", "canned"]],
+  ["curious", ["curious", "dreamy", "hopeful", "familiar", "long-eared", "deep sea", "tentacled"]],
 ];
 
 /** Шість карт, де прикметник нічого не каже про настрій. */
@@ -82,8 +90,9 @@ export function matchMood(name: string): Mood | null {
   const forced = MOOD_OVERRIDES[name];
   if (forced) return forced;
   const n = name.toLowerCase();
-  if (ANGRY.some((w) => n.includes(w))) return "angry";
-  if (SAD.some((w) => n.includes(w))) return "sad";
+  for (const [mood, words] of MOOD_WORDS) {
+    if (words.some((w) => n.includes(w))) return mood;
+  }
   return null;
 }
 

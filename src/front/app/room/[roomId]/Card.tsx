@@ -6,6 +6,8 @@ import { getAbilityLabel, formatMarkersShort } from "@/lib/cardDescription";
 import { CARD_SIZES, type CardSizeToken } from "@/lib/cardSizes";
 import { CardArt } from "@/lib/cardart/CardArt";
 import { CardBack, CARD_BACK_FIELD } from "@/lib/cardart/CardBack";
+import { FactionBadge } from "@/lib/cardart/FactionBadge";
+import { withIcons } from "@/lib/cardart/abilityIcons";
 import { FACTION_LABEL } from "./constants";
 
 export function GameCard({
@@ -59,6 +61,8 @@ export function GameCard({
   const artKey = catalogProp?.[cardId]?.name ?? resolved?.name ?? name;
   const spineColor = isGraveyard ? "var(--zone-graveyard-border)" : borderColor;
   const spineLabel = faction ? FACTION_LABEL[faction] : undefined;
+  const iconPx = Math.max(9, spec.footerFontPx);
+  const badgePx = Math.round(spec.nameFontPx * 1.15);
 
   const catalogEntry = catalogProp?.[cardId];
   const abilityLabel = getAbilityLabel(catalogEntry?.ability, catalogEntry?.markers);
@@ -110,9 +114,13 @@ export function GameCard({
       </div>
 
       <div className="flex-1 min-w-0 flex flex-col" style={{ padding: spec.pad }}>
-      <div className={`shrink-0 min-w-0 overflow-hidden ${isGraveyardSize ? "text-center" : ""} ${isLarge ? "min-h-[1.5rem]" : ""}`}>
+      {/* Круглий бейдж фракції ліворуч від назви — як на друкованих картах. */}
+      <div className={`shrink-0 min-w-0 overflow-hidden flex items-center gap-1 ${isGraveyardSize ? "justify-center" : ""} ${isLarge ? "min-h-[1.5rem]" : ""}`}>
+        {faction && !isGraveyardSize && (
+          <FactionBadge faction={faction} size={badgePx} fraction2={resolved?.fraction_2} />
+        )}
         <span
-          className={`font-semibold notranslate block ${isGraveyardSize ? "leading-tight line-clamp-2 break-words text-center w-full" : "truncate"} ${isGraveyard ? "zone-graveyard-text" : "text-[#1e3a5f]"}`}
+          className={`font-semibold notranslate block min-w-0 ${isGraveyardSize ? "leading-tight line-clamp-2 break-words text-center w-full" : "truncate"} ${isGraveyard ? "zone-graveyard-text" : "text-[#1e3a5f]"}`}
           style={{ fontSize: spec.nameFontPx }}
           title={name}
         >
@@ -148,23 +156,12 @@ export function GameCard({
           <div
             className={`font-medium text-[#1e3a5f]/90 break-words ${spec.abilityLines === 2 ? "line-clamp-2" : "line-clamp-3"}`}
           >
-            {abilityLabel}
+            {withIcons(abilityLabel, iconPx)}
           </div>
         )}
         {markersShort && (
-          <div className="flex flex-wrap gap-1">
-            {markersShort.includes("R") || markersShort.includes("G") ? (
-              markersShort.split(", ").map((part, i) => (
-                <span
-                  key={i}
-                  className={part.includes("R") ? "text-[var(--red)]" : part.includes("G") ? "text-[var(--green)]" : ""}
-                >
-                  {part}
-                </span>
-              ))
-            ) : (
-              <span className="text-[#1e3a5f]/70">{markersShort}</span>
-            )}
+          <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 font-semibold">
+            {withIcons(markersShort, iconPx + 1)}
           </div>
         )}
         {!abilityLabel && !markersShort && hasMarkersOnly && (
