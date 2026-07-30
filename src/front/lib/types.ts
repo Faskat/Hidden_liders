@@ -34,7 +34,12 @@ export interface AbilityDef {
   condition?: string;
   x_source?: string;
   count?: number;
-  distribution?: boolean;
+  /**
+   * Куди розкласти взяті карти, напр. `{"Party_face_down": 1, "Wilderness": "rest"}`.
+   * Раніше тут стояв `boolean` — це було просто неправильно, бекенд ніколи не
+   * надсилає сюди булеве значення.
+   */
+  distribution?: Record<string, number | "rest">;
   targets?: string[];
 }
 
