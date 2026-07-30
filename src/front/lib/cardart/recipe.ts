@@ -39,6 +39,31 @@ const BASE: Record<Archetype, CardRecipe> = {
 
 const FALLBACK: CardRecipe = { body: "leather", legs: "boots", head: "human", face: "faceCurious" };
 
+/** Ноги, які водний народ замінює хвостом. */
+const WALKING_LEGS = new Set(["boots", "greaves", "clawFeet", "furBoots"]);
+
+/**
+ * Фракційний колорит поверх архетипу.
+ *
+ * Замінюємо лише те, що фракція справді змінює: водний народ ходить на хвості,
+ * нежить має запалі обличчя. Тіло, зброя й убір лишаються від архетипу — інакше
+ * усі 18 карт фракції злилися б в одну.
+ */
+function applyFactionTweaks(recipe: CardRecipe, faction: string | undefined): CardRecipe {
+  const out = { ...recipe };
+  if (faction === "Waterfolk") {
+    if (out.legs && WALKING_LEGS.has(out.legs)) out.legs = "finTail";
+    if (out.head === "snout") out.head = "fishHead";
+  } else if (faction === "Undead") {
+    if (out.head === "human") out.head = "gaunt";
+    if (out.body === "barechest") out.body = "ribcage";
+    if (out.legs && WALKING_LEGS.has(out.legs)) out.legs = "boneLegs";
+  } else if (faction === "Highlanders") {
+    if (out.legs === "boots") out.legs = "furBoots";
+  }
+  return out;
+}
+
 /** Ручні винятки: там, де ключове слово промахується або назва просить конкретики. */
 export const OVERRIDES: Record<string, CardRecipe> = {};
 
@@ -51,25 +76,26 @@ export type ResolvedRecipe = {
 };
 
 /** Тільки виведення, без кешу — потрібне галереї, щоб показати «чому саме так». */
-export function deriveRecipe(artKey: string): ResolvedRecipe {
+export function deriveRecipe(artKey: string, faction?: string): ResolvedRecipe {
   const archetype = deriveArchetype(artKey);
   const mood = deriveMood(artKey);
   const recipe: CardRecipe = {
-    ...FALLBACK,
-    ...BASE[archetype],
+    ...applyFactionTweaks({ ...FALLBACK, ...BASE[archetype] }, faction),
     face: MOOD_FACE[mood],
+    // Ручний виняток перебиває і архетип, і фракцію.
     ...OVERRIDES[artKey],
   };
   return { recipe, archetype, mood };
 }
 
 /** Рецепт для рендера. Ніколи не повертає undefined. */
-export function resolveRecipe(artKey: string): CardRecipe {
+export function resolveRecipe(artKey: string, faction?: string): CardRecipe {
   if (!artKey) return FALLBACK;
-  const hit = cache.get(artKey);
+  const key = `${artKey}|${faction ?? ""}`;
+  const hit = cache.get(key);
   if (hit) return hit;
-  const { recipe } = deriveRecipe(artKey);
-  cache.set(artKey, recipe);
+  const { recipe } = deriveRecipe(artKey, faction);
+  cache.set(key, recipe);
   return recipe;
 }
 

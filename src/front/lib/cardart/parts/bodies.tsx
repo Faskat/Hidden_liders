@@ -103,6 +103,46 @@ export const leather: PartComponent = ({ p, lod }) => {
   );
 };
 
+/** Грудна клітка: хребет, ребра, таз. Скелети. */
+export const ribcage: PartComponent = ({ p, lod }) => {
+  const s = lod >= 1 ? p.ink : "none";
+  return (
+    <g strokeWidth={INK} strokeLinejoin="round">
+      <path d="M39 57 L33 60 L24 84 L23 90 L28 91 L31 84 L41 66 Z" fill={p.skin} stroke={s} />
+      <path d="M61 57 L67 60 L76 84 L77 90 L72 91 L69 84 L59 66 Z" fill={p.skin} stroke={s} />
+      <circle cx={25} cy={90} r={3.6} fill={p.skin} stroke={s} />
+      <circle cx={75} cy={90} r={3.6} fill={p.skin} stroke={s} />
+      {/* Хребет заодно закриває шов шиї на x 44..56, y 50..54. */}
+      <path d="M42 50 L58 50 L56 96 L44 96 Z" fill={p.skin} stroke={s} />
+      <path d="M36 58 L64 58 L62 64 L38 64 Z" fill={p.skinShade} stroke={s} />
+      <path d="M35 68 L65 68 L63 74 L37 74 Z" fill={p.skinShade} stroke={s} />
+      <path d="M37 78 L63 78 L61 84 L39 84 Z" fill={p.skinShade} stroke={s} />
+      <path d="M40 88 L60 88 L58 98 L42 98 Z" fill={p.skinShade} stroke={s} />
+    </g>
+  );
+};
+
+/** Панцир: черепахи й ракоподібні. */
+export const shellBody: PartComponent = ({ p, lod }) => {
+  const s = lod >= 1 ? p.ink : "none";
+  return (
+    <g strokeWidth={INK} strokeLinejoin="round">
+      <path d="M39 60 L31 64 L22 84 L21 90 L27 91 L31 84 L41 68 Z" fill={p.skinShade} stroke={s} />
+      <path d="M61 60 L69 64 L78 84 L79 90 L73 91 L69 84 L59 68 Z" fill={p.skinShade} stroke={s} />
+      <circle cx={24} cy={90} r={4} fill={p.skin} stroke={s} />
+      <circle cx={76} cy={90} r={4} fill={p.skin} stroke={s} />
+      <path d="M42 50 L58 50 L70 64 L68 88 L58 97 L42 97 L32 88 L30 64 Z" fill={p.metalShade} stroke={s} />
+      {lod >= 1 && (
+        <g fill={p.metal} stroke={s} strokeWidth={1}>
+          <path d="M50 62 L58 67 L58 77 L50 82 L42 77 L42 67 Z" />
+          <path d="M38 70 L42 72 L42 80 L37 82 L34 76 Z" />
+          <path d="M62 70 L58 72 L58 80 L63 82 L66 76 Z" />
+        </g>
+      )}
+    </g>
+  );
+};
+
 /** Голий торс: м'язи й пов'язка на стегнах. Для звірів і берсерків. */
 export const barechest: PartComponent = ({ p, lod }) => {
   const s = lod >= 1 ? p.ink : "none";

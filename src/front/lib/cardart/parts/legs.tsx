@@ -34,6 +34,57 @@ export const boots: PartComponent = ({ p, lod }) => {
   );
 };
 
+/** Риб'ячий хвіст замість ніг: водний народ. */
+export const finTail: PartComponent = ({ p, lod }) => {
+  const s = lod >= 1 ? p.ink : "none";
+  return (
+    <g strokeWidth={INK} strokeLinejoin="round">
+      <path d="M38 94 L62 94 L56 116 L53 128 L47 128 L44 116 Z" fill={p.cloth} stroke={s} />
+      <path d="M50 122 L32 139 L44 129 L50 133 L56 129 L68 139 Z" fill={p.clothShade} stroke={s} />
+      {lod >= 2 && (
+        <g stroke={p.ink} fill="none" strokeWidth={0.9} opacity={0.35}>
+          <path d="M42 100 L58 100" />
+          <path d="M43 108 L57 108" />
+          <path d="M45 116 L55 116" />
+        </g>
+      )}
+    </g>
+  );
+};
+
+/** Кістяні ноги: стегно, коліно, гомілка. Скелети. */
+export const boneLegs: PartComponent = ({ p, lod }) => {
+  const s = lod >= 1 ? p.ink : "none";
+  return (
+    <g strokeWidth={INK} strokeLinejoin="round">
+      <path d="M40 94 L46 94 L45 111 L41 111 Z" fill={p.skin} stroke={s} />
+      <path d="M54 94 L60 94 L59 111 L55 111 Z" fill={p.skin} stroke={s} />
+      <circle cx={43} cy={113} r={3.2} fill={p.skinShade} stroke={s} />
+      <circle cx={57} cy={113} r={3.2} fill={p.skinShade} stroke={s} />
+      <path d="M41 116 L45 116 L44 131 L40 131 Z" fill={p.skin} stroke={s} />
+      <path d="M55 116 L59 116 L58 131 L54 131 Z" fill={p.skin} stroke={s} />
+      <path d="M35 131 L46 131 L46 136 L34 136 Z" fill={p.skinShade} stroke={s} />
+      <path d="M54 131 L65 131 L66 136 L54 136 Z" fill={p.skinShade} stroke={s} />
+    </g>
+  );
+};
+
+/** Хутряні чоботи: горяни й варвари. */
+export const furBoots: PartComponent = ({ p, lod }) => {
+  const s = lod >= 1 ? p.ink : "none";
+  return (
+    <g strokeWidth={INK} strokeLinejoin="round">
+      <path d="M36 94 L48 94 L47 124 L48 134 L31 134 L34 124 Z" fill={p.clothShade} stroke={s} />
+      <path d="M64 94 L52 94 L53 124 L52 134 L69 134 L66 124 Z" fill={p.clothShade} stroke={s} />
+      {/* Хутряний вилог із зубчастим краєм — головна прикмета цих чобіт. */}
+      <path d="M33 112 L49 112 L48 122 L44 118 L40 123 L36 118 L33 122 Z" fill={p.skinShade} stroke={s} />
+      <path d="M67 112 L51 112 L52 122 L56 118 L60 123 L64 118 L67 122 Z" fill={p.skinShade} stroke={s} />
+      <path d="M34 124 L48 124 L48 134 L31 134 Z" fill={p.ink} opacity={0.7} stroke={s} />
+      <path d="M66 124 L52 124 L52 134 L69 134 Z" fill={p.ink} opacity={0.7} stroke={s} />
+    </g>
+  );
+};
+
 /** Латні поножі: наколінники й металеві гомілки. */
 export const greaves: PartComponent = ({ p, lod }) => {
   const s = lod >= 1 ? p.ink : "none";

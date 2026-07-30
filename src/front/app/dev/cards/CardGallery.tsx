@@ -79,7 +79,7 @@ function coverage() {
   for (const c of all) {
     if (matchArchetype(c.name)) archetypes++;
     if (matchMood(c.name)) moods++;
-    const { recipe } = deriveRecipe(c.name);
+    const { recipe } = deriveRecipe(c.name, c.faction);
     for (const slot of SLOT_ORDER) {
       const id = recipe[slot as Slot];
       if (id && !getPart(slot, id)) unknownParts.push(`${c.name}: ${slot}.${id}`);
@@ -142,14 +142,14 @@ function CardCell({
           />
         </div>
       </div>
-      <RecipeDebug name={card.name} cardId={card.cardId} />
+      <RecipeDebug name={card.name} cardId={card.cardId} faction={card.faction} />
     </div>
   );
 }
 
 /** Без цього неможливо налаштовувати таблицю ключових слів: не видно «чому саме так». */
-function RecipeDebug({ name, cardId }: { name: string; cardId: string }) {
-  const { recipe, archetype, mood } = deriveRecipe(name);
+function RecipeDebug({ name, cardId, faction }: { name: string; cardId: string; faction: string }) {
+  const { recipe, archetype, mood } = deriveRecipe(name, faction);
   const parts = SLOT_ORDER.map((s) => recipe[s as Slot]).filter(Boolean).join(" ");
   return (
     <div className="text-[9px] text-[var(--text-muted)] text-center max-w-[130px] leading-tight">

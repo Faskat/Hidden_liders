@@ -58,6 +58,109 @@ export const skull: PartComponent = ({ p, lod }) => (
   </g>
 );
 
+/** Виснажене обличчя нежиті: вужче за людське, із загостреним підборіддям. */
+export const gaunt: PartComponent = ({ p, lod }) => (
+  <g>
+    <path
+      d="M50 10 L60 16 L62 28 L59 38 L54 47 L54 50 L46 50 L46 47 L41 38 L38 28 L40 16 Z"
+      fill={p.skin}
+      stroke={lod >= 1 ? p.ink : "none"}
+      strokeWidth={INK}
+      strokeLinejoin="round"
+    />
+    {lod >= 2 && (
+      <g stroke={p.ink} fill="none" strokeWidth={0.9} opacity={0.45}>
+        <path d="M42 30 L44 40" />
+        <path d="M58 30 L56 40" />
+        <path d="M46 44 L54 44" />
+      </g>
+    )}
+  </g>
+);
+
+/** Риб'яча голова: спинний гребінь, зябра, морда вперед. */
+export const fishHead: PartComponent = ({ p, lod }) => {
+  const s = lod >= 1 ? p.ink : "none";
+  return (
+    <g strokeWidth={INK} strokeLinejoin="round">
+      <path d="M47 12 L49 1 L57 14 Z" fill={p.skinShade} stroke={s} />
+      <path d="M46 12 L58 16 L64 28 L60 40 L56 46 L56 50 L44 50 L43 44 L34 40 L28 32 L34 23 L40 17 Z" fill={p.skin} stroke={s} />
+      <path d="M28 32 L34 30 L34 36 Z" fill={p.ink} opacity={0.75} />
+      {lod >= 1 && (
+        <g stroke={p.skinShade} fill="none" strokeWidth={1.3}>
+          <path d="M52 26 L52 38" />
+          <path d="M56 26 L56 38" />
+          <path d="M60 27 L60 37" />
+        </g>
+      )}
+    </g>
+  );
+};
+
+/** Голова ящера: витягнута морда й гребінь на потилиці. */
+export const lizardHead: PartComponent = ({ p, lod }) => {
+  const s = lod >= 1 ? p.ink : "none";
+  return (
+    <g strokeWidth={INK} strokeLinejoin="round">
+      <path d="M44 14 L46 3 L52 12 L58 5 L59 16 Z" fill={p.skinShade} stroke={s} />
+      <path d="M44 14 L58 16 L64 26 L62 36 L57 43 L56 50 L44 50 L43 43 L32 40 L26 33 L36 27 L40 20 Z" fill={p.skin} stroke={s} />
+      <path d="M26 33 L32 31 L32 37 Z" fill={p.ink} opacity={0.75} />
+      {lod >= 2 && (
+        <g stroke={p.ink} fill="none" strokeWidth={0.9} opacity={0.4}>
+          <path d="M36 30 L44 32" />
+          <path d="M36 35 L44 36" />
+        </g>
+      )}
+    </g>
+  );
+};
+
+/** Голова черепахи: маленька, на шиї, з дзьобом. */
+export const turtleHead: PartComponent = ({ p, lod }) => {
+  const s = lod >= 1 ? p.ink : "none";
+  return (
+    <g strokeWidth={INK} strokeLinejoin="round">
+      <path d="M46 22 L58 24 L63 32 L59 41 L56 46 L56 50 L44 50 L44 46 L42 41 L38 32 L40 26 Z" fill={p.skin} stroke={s} />
+      <path d="M38 31 L29 34 L38 39 Z" fill={p.skinShade} stroke={s} />
+      {lod >= 2 && (
+        <g stroke={p.ink} fill="none" strokeWidth={0.9} opacity={0.4}>
+          <path d="M46 44 L54 44" />
+          <path d="M47 47 L53 47" />
+        </g>
+      )}
+    </g>
+  );
+};
+
+/** Півголови: ліва половина жива, права — голий череп. Half-headed Wizard. */
+export const halfSkull: PartComponent = ({ p, lod }) => {
+  const s = lod >= 1 ? p.ink : "none";
+  return (
+    <g strokeWidth={INK} strokeLinejoin="round">
+      <path d="M50 10 L50 50 L44 50 L44 46 L38 38 L36 27 L39 15 Z" fill={p.skin} stroke={s} />
+      <path d="M50 10 L61 15 L64 27 L62 38 L56 46 L56 50 L50 50 Z" fill={p.skinShade} stroke={s} />
+      {lod >= 1 && (
+        <g stroke={p.ink} strokeWidth={0.9} opacity={0.5}>
+          <path d="M52 46 L52 50 M55 46 L55 50 M58 45 L58 49" fill="none" />
+        </g>
+      )}
+    </g>
+  );
+};
+
+/** Морда з шаблезубими іклами. Saber Tooth Troll. */
+export const saberSnout: PartComponent = ({ p, lod }) => {
+  const s = lod >= 1 ? p.ink : "none";
+  return (
+    <g strokeWidth={INK} strokeLinejoin="round">
+      <path d="M41 16 L36 5 L48 11 Z M59 17 L67 8 L66 20 Z" fill={p.skinShade} stroke={s} />
+      <path d="M45 12 L58 15 L64 26 L62 37 L57 43 L56 50 L44 50 L43 43 L34 41 L30 34 L39 29 L40 19 Z" fill={p.skin} stroke={s} />
+      <path d="M30 34 L36 31 L37 37 Z" fill={p.ink} opacity={0.8} />
+      <path d="M34 39 L32 52 L38 41 Z M41 40 L40 53 L45 42 Z" fill={p.metal} stroke={s} strokeWidth={1} />
+    </g>
+  );
+};
+
 /** Звірина морда: витягнута вліво, з двома вухами. */
 export const snout: PartComponent = ({ p, lod }) => (
   <g>

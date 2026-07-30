@@ -67,7 +67,7 @@ export const CardArt = memo(function CardArt({
     ? getLeaderPalette(artKey, fraction1, fraction2)
     : getPalette(artKey, faction);
   const { lod, slots } = ART_LOD[size];
-  const recipe = resolveRecipe(artKey);
+  const recipe = resolveRecipe(artKey, faction);
 
   return (
     <svg
