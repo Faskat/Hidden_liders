@@ -7,7 +7,9 @@ import { useCardsCatalog } from "@/app/contexts/CardsCatalogContext";
 import { GameCard } from "./Card";
 import { CardFan, type FanDirection } from "./CardFan";
 import { CARD_SIZES, type CardSizeToken } from "@/lib/cardSizes";
-import { getHeroLimit, FACTION_STYLE } from "./constants";
+import { CardBack } from "@/lib/cardart/CardBack";
+import { displayName } from "@/lib/cardNames";
+import { getHeroLimit, FACTION_STYLE, FACTION_LABEL } from "./constants";
 
 function isHeroRef(
   x: PlayerView["open_heroes"][number]
@@ -106,6 +108,7 @@ export function PlayerZone({
   const [peekLeader, setPeekLeader] = useState(false);
   const [showHiddenTooltip, setShowHiddenTooltip] = useState(false);
   const [showHiddenModal, setShowHiddenModal] = useState(false);
+  const [showLeaderModal, setShowLeaderModal] = useState(false);
   const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number } | null>(null);
   const hiddenBadgeRef = useRef<HTMLElement | null>(null);
   const ownHiddenCardIds = isMe ? getOwnHiddenCardIds(player) : [];
@@ -119,7 +122,10 @@ export function PlayerZone({
   const leader: LeaderView | undefined = player.leader;
   const leaderRevealed = gameEnded || isMe;
   const showLeaderOpen = leaderRevealed || (isMe && peekLeader);
-  const leaderName = showLeaderOpen && leader?.name ? leader.name : null;
+  // Імена лідерів так само перекладені, як і назви героїв, — і так само лише на
+  // показ: `leader.name` з бекенда лишається ключем арту.
+  const leaderName =
+    showLeaderOpen && leader?.name ? displayName(leader.name) || leader.name : null;
   const frac1 = showLeaderOpen && leader?.fraction_1 ? leader.fraction_1 : null;
   const frac2 = showLeaderOpen && leader?.fraction_2 ? leader.fraction_2 : null;
 
@@ -183,14 +189,16 @@ export function PlayerZone({
                       <div className="p-1 flex flex-col justify-between h-full text-left">
                         <span className="text-[9px] font-semibold text-[#1e3a5f] truncate" title={leaderName ?? undefined}>{leaderName ?? "?"}</span>
                         <div className="flex gap-0.5 flex-wrap">
-                          {frac1 && <span className={`text-[8px] px-1 py-0.5 rounded border ${FACTION_STYLE[frac1] ?? ""}`}>{frac1}</span>}
-                          {frac2 && frac2 !== frac1 && <span className={`text-[8px] px-1 py-0.5 rounded border ${FACTION_STYLE[frac2] ?? ""}`}>{frac2}</span>}
+                          {frac1 && <span className={`text-[8px] px-1 py-0.5 rounded border ${FACTION_STYLE[frac1] ?? ""}`}>{FACTION_LABEL[frac1] ?? frac1}</span>}
+                          {frac2 && frac2 !== frac1 && <span className={`text-[8px] px-1 py-0.5 rounded border ${FACTION_STYLE[frac2] ?? ""}`}>{FACTION_LABEL[frac2] ?? frac2}</span>}
                         </div>
                       </div>
                     </div>
                   ) : (
-                    <div className="w-full h-full rounded bg-[#1e3a5f]/15 border-[#1e3a5f] flex items-center justify-center">
-                      <span className="board-label text-[#1e3a5f]/60 text-xs">?</span>
+                    // Та сама рубашка, що й у решти закритих карт: окрема сорочка
+                    // для лідера видавала б, що ця карта — лідер.
+                    <div className="w-full h-full overflow-hidden rounded">
+                      <CardBack size="leaderMini" />
                     </div>
                   )}
                 </button>
@@ -288,7 +296,19 @@ export function PlayerZone({
             <div className="flex flex-col items-center gap-0.5 mt-0.5">
               <span className="text-[var(--text-muted)] text-xs">
                 {showLeaderOpen && leaderName ? (
-                  <>Лідер: <span className="font-semibold text-[var(--text)]">{leaderName}</span></>
+                  <>
+                    Лідер: <span className="font-semibold text-[var(--text)]">{leaderName}</span>
+                    {/* Раніше свого лідера можна було тільки прочитати назвою.
+                        Карта з артом і фракціями — те саме, що бачать інші
+                        гравці про своїх, тож нової інформації це не відкриває. */}
+                    <button
+                      type="button"
+                      onClick={() => setShowLeaderModal(true)}
+                      className="ml-1 text-[var(--accent)] hover:underline text-[10px] cursor-pointer"
+                    >
+                      Переглянути
+                    </button>
+                  </>
                 ) : (
                   <>
                     Лідер: <span className="italic">приховано</span>
@@ -298,8 +318,8 @@ export function PlayerZone({
               </span>
               {showLeaderOpen && (frac1 || frac2) && (
                 <div className="flex gap-1 flex-wrap justify-center">
-                  {frac1 && <span className={`text-[10px] px-1.5 py-0.5 rounded border ${FACTION_STYLE[frac1] ?? ""}`}>{frac1}</span>}
-                  {frac2 && frac2 !== frac1 && <span className={`text-[10px] px-1.5 py-0.5 rounded border ${FACTION_STYLE[frac2] ?? ""}`}>{frac2}</span>}
+                  {frac1 && <span className={`text-[10px] px-1.5 py-0.5 rounded border ${FACTION_STYLE[frac1] ?? ""}`}>{FACTION_LABEL[frac1] ?? frac1}</span>}
+                  {frac2 && frac2 !== frac1 && <span className={`text-[10px] px-1.5 py-0.5 rounded border ${FACTION_STYLE[frac2] ?? ""}`}>{FACTION_LABEL[frac2] ?? frac2}</span>}
                 </div>
               )}
             </div>
@@ -440,6 +460,37 @@ export function PlayerZone({
           </div>
         </div>
       </div>
+      {showLeaderModal && isMe && leader?.leader_card_id && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+          onClick={() => setShowLeaderModal(false)}
+        >
+          <div
+            className="bg-[var(--bg-panel)] border border-[var(--border)] rounded-2xl shadow-2xl max-w-sm w-full mx-4 p-5 flex flex-col items-center gap-3"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="font-display text-lg font-semibold text-[var(--accent)]">Ваш лідер</h3>
+            <GameCard
+              cardId={leader.leader_card_id}
+              variant="open"
+              name={leader.name ?? undefined}
+              faction="Leader"
+              size="xlarge"
+              catalog={catalog}
+            />
+            <p className="text-xs text-[var(--text-muted)] text-center">
+              Перемагаєте, якщо на кінець гри виконана умова будь-якої з двох фракцій лідера.
+            </p>
+            <button
+              type="button"
+              onClick={() => setShowLeaderModal(false)}
+              className="btn-soft w-full py-2.5 px-4 text-sm rounded-xl"
+            >
+              Закрити
+            </button>
+          </div>
+        </div>
+      )}
       {showHiddenModal && ownHiddenCardIds.length > 0 && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"

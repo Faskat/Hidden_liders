@@ -34,9 +34,12 @@ export type CardSizeSpec = {
   artH: number;
   nameFontPx: number;
   /**
-   * Скільки рядків відводимо під назву. Українські назви довші за англійські
-   * («Недооцінений Зброєносець»), тож двох рядків вистачає скрізь, крім
-   * найвужчої плитки цвинтаря — там потрібен третій.
+   * Стеля рядків під назву — саме стеля, а не резерв: коротка назва все одно
+   * займе один рядок.
+   *
+   * Скрізь три. Двох вистачало, поки в рядку не з'явився бейдж фракції: він
+   * з'їдає початок першого рядка, і «Консервований Кавалерист» уже не влазив.
+   * Третій рядок нічого не коштує коротким назвам і рятує довгі.
    */
   nameLines: 2 | 3;
   footerFontPx: number;
@@ -58,10 +61,10 @@ export const CARD_SIZES: Record<CardSizeToken, CardSizeSpec> = {
   graveyard:  { w:  60, h:  84, pad:  4, overlap: null, artH: 36, nameFontPx:  8, nameLines: 3, footerFontPx:  0, abilityLines: 2, showAbility: false, showFooter: false },
   leaderMini: { w:  52, h:  73, pad:  4, overlap: null, artH: 26, nameFontPx:  8, nameLines: 3, footerFontPx:  8, abilityLines: 2, showAbility: false, showFooter: false },
   tiny:       { w:  80, h: 112, pad:  6, overlap:  32,  artH: 44, nameFontPx: 10, nameLines: 3, footerFontPx:  9, abilityLines: 2, showAbility: false, showFooter: true  },
-  small:      { w: 100, h: 140, pad:  7, overlap:  40,  artH: 48, nameFontPx: 11, nameLines: 2, footerFontPx: 10, abilityLines: 3, showAbility: true,  showFooter: true  },
-  normal:     { w: 100, h: 140, pad:  7, overlap:  40,  artH: 48, nameFontPx: 11, nameLines: 2, footerFontPx: 10, abilityLines: 3, showAbility: true,  showFooter: true  },
-  large:      { w: 130, h: 182, pad:  9, overlap:  52,  artH: 68, nameFontPx: 13, nameLines: 2, footerFontPx: 11, abilityLines: 3, showAbility: true,  showFooter: true  },
-  xlarge:     { w: 160, h: 224, pad: 11, overlap:  64,  artH: 88, nameFontPx: 15, nameLines: 2, footerFontPx: 13, abilityLines: 4, showAbility: true,  showFooter: true  },
+  small:      { w: 100, h: 140, pad:  7, overlap:  40,  artH: 48, nameFontPx: 11, nameLines: 3, footerFontPx: 10, abilityLines: 3, showAbility: true,  showFooter: true  },
+  normal:     { w: 100, h: 140, pad:  7, overlap:  40,  artH: 48, nameFontPx: 11, nameLines: 3, footerFontPx: 10, abilityLines: 3, showAbility: true,  showFooter: true  },
+  large:      { w: 130, h: 182, pad:  9, overlap:  52,  artH: 68, nameFontPx: 13, nameLines: 3, footerFontPx: 11, abilityLines: 3, showAbility: true,  showFooter: true  },
+  xlarge:     { w: 160, h: 224, pad: 11, overlap:  64,  artH: 88, nameFontPx: 15, nameLines: 3, footerFontPx: 13, abilityLines: 4, showAbility: true,  showFooter: true  },
 };
 
 /** Крок віяла: наскільки лівий край наступної карти зсунуто відносно попередньої. */

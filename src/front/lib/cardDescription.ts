@@ -155,14 +155,16 @@ export function getAbilityLabel(
     return `${verb} ${target}`;
   }
   if (ability.action === "Guess_Kill") {
-    return "Вгадати фракцію прихованої і вбити";
+    return "Вгадати фракцію прихованої й вбити";
   }
   if (ability.action === "Kill") {
     const isOther = ability.target_player === "other";
     const faceDown = ability.visibility === "face_down" || !ability.visibility;
     const zone = ability.target_zone?.toLowerCase().includes("party") ? " на столі" : "";
     const factionFilter = ability.filters?.fraction as string | undefined;
-    const factionLabel = factionFilter ? ` (${factionFilter === "Waterfolk" ? "Водні" : factionFilter === "Imperials" ? "Імперія" : factionFilter === "Highlanders" ? "Племена" : factionFilter === "Undead" ? "Невмерлі" : factionFilter})` : "";
+    // Фракцію-фільтр скорочуємо: разом із «Вбити … супротивника» повна назва
+    // перекидала підпис на третій рядок, а він на карті 100×140 не поміщається.
+    const factionLabel = factionFilter ? ` (${factionFilter === "Waterfolk" ? "Водні" : factionFilter === "Imperials" ? "Імперія" : factionFilter === "Highlanders" ? "Плем." : factionFilter === "Undead" ? "Невм." : factionFilter})` : "";
     if (isOther) {
       return `Вбити ${faceDown ? "приховану" : "лицьову"} супротивника${factionLabel}`;
     }
@@ -186,8 +188,8 @@ export function getAbilityLabel(
     const options = ability.options ?? [];
     const effects = ability.effects ?? [];
     if (options.length > 0) {
-      const list = options.map(formatMoveEffect).join(" або ");
-      return options.length > 1 ? `Оберіть: ${list}` : list;
+      // Без «Оберіть:» — саме «або» вже каже, що це вибір, а слово з'їдало рядок.
+      return options.map(formatMoveEffect).join(" або ");
     }
     if (effects.length > 0) {
       const list = effects.map(formatMoveEffect).join(", ");
@@ -219,7 +221,7 @@ export function getAbilityLabel(
     const src = String(ability.source ?? "").toLowerCase();
     const tgt = String(ability.target ?? "").toLowerCase();
     if ((src === "other_party" || src.includes("other")) && (tgt === "self_hand" || tgt.includes("hand") || tgt.includes("self"))) {
-      return "Забрати лицьову супротивника або обміняти";
+      return "Забрати лицьову супротивника або обмін";
     }
     if (src === "hand" && tgt.includes("party_face_down")) {
       return "Обміняти карту з руки на свою приховану";

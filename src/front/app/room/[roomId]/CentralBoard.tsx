@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import type { GameStateView } from "@/lib/types";
 import { useCardsCatalog } from "@/app/contexts/CardsCatalogContext";
 import { GameCard } from "./Card";
+import { CardBack, CARD_BACK_FIELD } from "@/lib/cardart/CardBack";
 import { CARD_SIZES } from "@/lib/cardSizes";
 
 const WAR_AREA_BG = "rgba(30, 58, 95, 0.35)";
@@ -55,6 +56,32 @@ export function MarkerToken({
   );
 }
 
+/**
+ * Стопка закритих карт: справжня рубашка, а не знак питання.
+ *
+ * Рубашка каже те саме («що там — невідомо»), але ще й показує, що це колода
+ * карт, а не порожній слот, і збігається з усіма іншими закритими картами на
+ * столі. Обведення лишається кольором зони — саме воно й розрізняє гавань,
+ * пустош і цвинтар.
+ */
+function CardStack({ borderColor }: { borderColor: string }) {
+  return (
+    <div className="relative" style={{ width: SLOT.w, height: SLOT.h }}>
+      {/* Друга карта під першою — стопка має читатися як стопка. */}
+      <div
+        className="absolute inset-0 rounded-lg border-2 bg-black/25"
+        style={{ transform: "translate(2px, 2px)", borderColor }}
+      />
+      <div
+        className="relative rounded-lg border-2 overflow-hidden shadow-md w-full h-full"
+        style={{ borderColor }}
+      >
+        <CardBack size="graveyard" />
+      </div>
+    </div>
+  );
+}
+
 function CardStackPlaceholder({
   count,
   label,
@@ -67,32 +94,16 @@ function CardStackPlaceholder({
   const isHarbor = accent === "harbor";
   const isWilderness = accent === "wilderness";
   const isGraveyard = accent === "graveyard";
-  const stackStyle =
-    accent === "harbor"
-      ? { background: "var(--zone-harbor-bg)", borderColor: "var(--zone-harbor-border)", color: "var(--zone-harbor-text)" }
-      : accent === "wilderness" || accent === "graveyard"
-        ? { background: "var(--zone-wilderness-bg)", borderColor: "var(--zone-wilderness-border)", color: "var(--zone-wilderness-text)" }
-        : undefined;
+  const borderColor = isHarbor
+    ? "var(--zone-harbor-border)"
+    : isWilderness || isGraveyard
+      ? "var(--zone-wilderness-border)"
+      : CARD_BACK_FIELD;
   const textCl = isHarbor ? "zone-harbor-text" : isWilderness || isGraveyard ? "zone-wilderness-text" : "text-[var(--zone-label)]/80";
 
   return (
     <div className="flex flex-col items-center">
-      <div className="relative" style={{ width: SLOT.w }}>
-        <div
-          className="absolute inset-0 rounded border-2 bg-black/10"
-          style={{ transform: "translate(2px, 2px)" }}
-        />
-        <div
-          className="relative rounded-lg border-2 flex items-center justify-center board-label shadow-sm"
-          style={{
-            width: SLOT.w,
-            height: SLOT.h,
-            ...(stackStyle ?? { background: "rgba(30, 58, 95, 0.15)", borderColor: "var(--zone-label)", color: "var(--zone-label)" }),
-          }}
-        >
-          <span style={stackStyle ? { color: "inherit", opacity: 0.8 } : undefined}>?</span>
-        </div>
-      </div>
+      <CardStack borderColor={borderColor} />
       <span className={`mt-0.5 text-[10px] board-label ${textCl}`}>{label}</span>
       <span className={`text-xs font-semibold ${textCl}`}>{count}</span>
     </div>
@@ -252,12 +263,7 @@ export function CentralBoard({
               onClick={() => canDraw && onDrawFromHarbor()}
               className="flex flex-col items-center disabled:cursor-not-allowed disabled:opacity-60 hover:opacity-100 transition-opacity"
             >
-              <div className="relative" style={{ width: SLOT.w }}>
-                <div className="absolute inset-0 rounded-lg border-2 bg-black/15" style={{ transform: "translate(2px, 2px)", borderColor: "var(--zone-harbor-border)" }} />
-                <div className="relative rounded-lg border-2 flex items-center justify-center board-label shadow-md zone-harbor-text" style={{ width: SLOT.w, height: SLOT.h, background: "var(--zone-harbor-bg)", borderColor: "var(--zone-harbor-border)" }}>
-                  ?
-                </div>
-              </div>
+              <CardStack borderColor="var(--zone-harbor-border)" />
             </button>
             <span className="mt-0.5 text-xs font-bold zone-harbor-text">{state.harbor_count}</span>
             <button

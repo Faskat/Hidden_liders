@@ -128,6 +128,18 @@ function withGradients(p: Palette, gid: string): Palette {
   return out;
 }
 
+/**
+ * Який шар малюємо.
+ *
+ * Карта складається з двох накладених SVG, а не з одного: фон мусить залити
+ * карту цілком, під назву й підпис, а фігура — жити тільки в проміжку між ними,
+ * інакше текст ліг би їй на обличчя. Одним `viewBox` це не робиться: висоту
+ * смуг тексту задає перенос рядків у браузері, а не наші числа.
+ *
+ * `full` лишається для одиночного використання поза картою (dev-галерея).
+ */
+export type ArtLayer = "background" | "figure" | "full";
+
 export type CardArtProps = {
   /** Ім'я карти з каталогу — стабільний ключ арту. */
   artKey: string;
@@ -136,6 +148,7 @@ export type CardArtProps = {
   /** Для лідерів: двофракційна палітра. */
   fraction1?: string;
   fraction2?: string;
+  layer?: ArtLayer;
 };
 
 export const CardArt = memo(function CardArt({
@@ -144,6 +157,7 @@ export const CardArt = memo(function CardArt({
   size,
   fraction1,
   fraction2,
+  layer = "full",
 }: CardArtProps) {
   const isLeader = Boolean(fraction1 || fraction2);
   const palette = isLeader
@@ -183,27 +197,40 @@ export const CardArt = memo(function CardArt({
   const figure = `translate(0 ${v.lift}) translate(50 138) rotate(${v.lean.toFixed(2)}) scale(${sx.toFixed(3)} ${v.build.toFixed(3)}) translate(-50 -138)`;
   const headTf = `translate(50 50) scale(${v.headScale.toFixed(3)}) translate(-50 -50)`;
 
+  // Фон заливає карту цілком, тому обрізати його можна як завгодно — аби не
+  // лишилося полів. Фігура ж мусить поміститися повністю, звідси `meet`.
+  const fit = layer === "figure" ? "xMidYMid meet" : "xMidYMid slice";
+
   return (
     <svg
       viewBox={`0 0 ${VW} ${VH}`}
-      preserveAspectRatio="xMidYMid meet"
+      preserveAspectRatio={fit}
       width="100%"
       height="100%"
       role="presentation"
       style={{ display: "block" }}
     >
-      {shaded && <GradientDefs p={palette} gid={gid} />}
-      <Background p={palette} v={v} />
-      {backdrop.map(render)}
+      {shaded && layer !== "background" && <GradientDefs p={palette} gid={gid} />}
 
-      <g transform={figure}>
-        {beforeHead.map(render)}
-        <g transform={headTf}>{headGroup.map(render)}</g>
-        {afterHead.map(render)}
-      </g>
+      {layer !== "figure" && <Background p={palette} v={v} />}
 
-      {/* Вуаль теми — єдине, що тут реагує на світлу/темну тему. */}
-      <rect x={BG_X} y={-40} width={BG_W} height={VH + 80} fill="var(--card-art-veil)" />
+      {layer !== "background" && (
+        <>
+          {backdrop.map(render)}
+          <g transform={figure}>
+            {beforeHead.map(render)}
+            <g transform={headTf}>{headGroup.map(render)}</g>
+            {afterHead.map(render)}
+          </g>
+        </>
+      )}
+
+      {/* Вуаль теми — єдине, що тут реагує на світлу/темну тему. Живе на шарі
+          фону: він і так накриває карту цілком, а на шарі фігури вуаль лягла б
+          другим шаром поверх першої і подвоїла б затемнення. */}
+      {layer !== "figure" && (
+        <rect x={BG_X} y={-40} width={BG_W} height={VH + 80} fill="var(--card-art-veil)" />
+      )}
     </svg>
   );
 });

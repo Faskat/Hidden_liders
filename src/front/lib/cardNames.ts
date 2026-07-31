@@ -75,7 +75,9 @@ export const CARD_NAME_UA: Record<string, string> = {
   "Fearsome Fishman": "Страхітливий Риболюд",
   "Triple Sword Lizard": "Тримечна Ящірка",
   "Saltwater Sage": "Солоноводний Мудрець",
-  "Minor Fishguard": "Молодший Рибовартовий",
+  // «Рибовартовий» одним словом ширший за плитку 80×112 і ламався посеред
+  // слова — звідси коротша форма.
+  "Minor Fishguard": "Юний Рибовартий",
   "Clamped Krill Guard": "Панцирний Вартовий",
   "Aimless Eel": "Безцільний Вугор",
   "Bludgeoning Blowfish": "Забійна Риба-Куля",

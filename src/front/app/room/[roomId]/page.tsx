@@ -64,7 +64,9 @@ export default function RoomPage() {
   const panStartRef = useRef({ x: 0, y: 0, clientX: 0, clientY: 0 });
   const gameTableWrapperRef = useRef<HTMLDivElement>(null);
   const gameTableContentRef = useRef<HTMLDivElement>(null);
+  const myZoneRef = useRef<HTMLDivElement>(null);
   const [panBounds, setPanBounds] = useState<{ minX: number; maxX: number; minY: number; maxY: number } | null>(null);
+  const [previewPos, setPreviewPos] = useState<{ left: number; top: number } | null>(null);
 
   const ZOOM_MIN = 0.65;
   const ZOOM_MAX = 1.4;
@@ -158,18 +160,52 @@ export default function RoomPage() {
     edgeScrollRef.current.isInside = false;
   }, []);
 
-  useEffect(() => {
-    const wrapper = gameTableWrapperRef.current;
-    if (!wrapper) return;
-    const onWheel = (e: WheelEvent) => {
-      if (!e.ctrlKey && !e.metaKey) return;
-      e.preventDefault();
-      const delta = e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP;
-      setZoom((z) => Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, z + delta)));
-    };
-    wrapper.addEventListener("wheel", onWheel, { passive: false });
-    return () => wrapper.removeEventListener("wheel", onWheel);
+  /**
+   * Колесо масштабує без модифікатора: сторінка й так не гортається
+   * (`h-dvh overflow-hidden`), тож віддавати їй колесо було нічому.
+   *
+   * Навмисно проп `onWheel`, а не `addEventListener` в ефекті. До приходу стану
+   * компонент повертає екран завантаження, обгортки столу в DOM ще немає — і
+   * ефект із порожнім масивом залежностей чіплявся до `null` рівно один раз,
+   * назавжди. Саме тому старе Ctrl+колесо ніколи й не працювало.
+   *
+   * Ctrl лишаємо браузеру: це його власний зум сторінки, перехоплювати його
+   * означало б забрати в користувача звичний жест.
+   */
+  const handleWheelZoom = useCallback((e: React.WheelEvent) => {
+    if (e.ctrlKey || e.metaKey) return;
+    const delta = e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP;
+    setZoom((z) => Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, z + delta)));
   }, []);
+
+  /**
+   * Прев'ю карти ставимо збоку від панелі гравця, а не в кут екрана.
+   *
+   * Панель їздить разом зі столом (пан і зум), тому позицію рахуємо в момент
+   * наведення з її реального прямокутника. Ліворуч, бо праворуч від панелі —
+   * бічна колонка з таверною і зонами, і прев'ю накривало б саме те, з чим
+   * гравець порівнює карту. Якщо ліворуч місця немає — притискаємо до краю.
+   */
+  const PREVIEW_W = 192;
+  const PREVIEW_H = 256;
+  useEffect(() => {
+    if (!hoveredCard) {
+      setPreviewPos(null);
+      return;
+    }
+    const el = myZoneRef.current;
+    if (!el) {
+      setPreviewPos(null);
+      return;
+    }
+    const r = el.getBoundingClientRect();
+    const left = Math.max(8, r.left - 12 - PREVIEW_W);
+    const top = Math.min(
+      Math.max(8, r.top + r.height / 2 - PREVIEW_H / 2),
+      Math.max(8, window.innerHeight - PREVIEW_H - 8)
+    );
+    setPreviewPos({ left, top });
+  }, [hoveredCard]);
 
   useEffect(() => {
     const wrapper = gameTableWrapperRef.current;
@@ -861,10 +897,11 @@ export default function RoomPage() {
           </div>
         </header>
 
-        {/* Big card preview when hovering over a card: shown at the left edge so it never covers the tavern sidebar */}
-        {hoveredCard && cardPreview && (
+        {/* Велике прев'ю карти під час наведення — збоку від панелі гравця. */}
+        {hoveredCard && cardPreview && previewPos && (
           <div
-            className="fixed inset-0 z-40 flex items-center justify-start pl-6 sm:pl-10 pointer-events-none"
+            className="fixed z-40 pointer-events-none"
+            style={{ left: previewPos.left, top: previewPos.top, width: PREVIEW_W }}
             aria-hidden
           >
             <div className="bg-black/50 rounded-2xl p-4 shadow-2xl pointer-events-none">
@@ -889,6 +926,7 @@ export default function RoomPage() {
           onMouseDown={handlePanStart}
           onMouseMove={handleGameAreaMouseMove}
           onMouseLeave={handleGameAreaMouseLeave}
+          onWheel={handleWheelZoom}
           style={{ touchAction: "none" }}
         >
           {/* Pan to edge: show only when can still move in that direction */}
@@ -964,7 +1002,7 @@ export default function RoomPage() {
                   onClick={() => setZoom((z) => Math.max(ZOOM_MIN, z - ZOOM_STEP))}
                   disabled={zoom <= ZOOM_MIN}
                   className="w-8 h-8 flex items-center justify-center rounded-lg bg-[var(--bg-panel)]/90 hover:bg-[var(--bg-hover)] border border-[var(--border)] shadow text-[var(--text)] transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                  title="Віддалити (або Ctrl+колесо)"
+                  title="Віддалити (або колесо миші)"
                   aria-label="Віддалити"
                 >
                   <span className="text-sm font-bold">−</span>
@@ -974,7 +1012,7 @@ export default function RoomPage() {
                   onClick={() => setZoom((z) => Math.min(ZOOM_MAX, z + ZOOM_STEP))}
                   disabled={zoom >= ZOOM_MAX}
                   className="w-8 h-8 flex items-center justify-center rounded-lg bg-[var(--bg-panel)]/90 hover:bg-[var(--bg-hover)] border border-[var(--border)] shadow text-[var(--text)] transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                  title="Приблизити (або Ctrl+колесо)"
+                  title="Приблизити (або колесо миші)"
                   aria-label="Приблизити"
                 >
                   <span className="text-sm font-bold">+</span>
@@ -1098,7 +1136,7 @@ export default function RoomPage() {
           )}
           {/* Bottom (me): always viewPlayers[0] — closer to power track */}
           {viewPlayers[0] && (
-            <div className="zone-bottom flex justify-center items-end pb-0 -mt-12" style={{ gridColumn: 2, gridRow: 3 }}>
+            <div ref={myZoneRef} className="zone-bottom flex justify-center items-end pb-0 -mt-12" style={{ gridColumn: 2, gridRow: 3 }}>
               <PlayerZone
                 player={me ?? viewPlayers[0]}
                 position="bottom"

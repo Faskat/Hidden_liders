@@ -10,6 +10,17 @@ import { FactionBadge } from "@/lib/cardart/FactionBadge";
 import { withIcons } from "@/lib/cardart/abilityIcons";
 import { displayName } from "@/lib/cardNames";
 
+/**
+ * Підкладка під текст.
+ *
+ * Напівпрозора навмисно: фон арту тепер заливає карту цілком, і суцільна біла
+ * плашка вирізала б із нього дві смуги. Крізь 0.82 фон читається як єдине
+ * полотно, а темно-синій текст на ньому лишається контрастним навіть на
+ * найтемнішій підкладці (Невмерлі).
+ */
+const PLATE = "rgba(255,255,255,0.82)";
+const PLATE_NAME = "rgba(255,255,255,0.88)";
+
 export function GameCard({
   cardId,
   variant,
@@ -53,14 +64,14 @@ export function GameCard({
     );
   }
 
-  const isLarge = size === "large" || size === "xlarge";
-  const isXLarge = size === "xlarge";
   const isGraveyardSize = size === "graveyard";
+  /** На 52–60px завширшки бейдж у рядку імені з'їв би чверть рядка — там він лишається в куті. */
+  const badgeInName = !isGraveyardSize && size !== "leaderMini";
 
   /** Ключ арту — англійське ім'я з каталогу, а не card_id: див. lib/cardart/types.ts. */
   const artKey = catalogProp?.[cardId]?.name ?? resolved?.name ?? name;
   const iconPx = Math.max(9, spec.footerFontPx);
-  const badgePx = Math.round(spec.nameFontPx * 1.2);
+  const badgePx = Math.round(spec.nameFontPx * 1.25);
   /** Показуємо українською, а рушій арту й далі ключується англійською назвою. */
   const shownName = displayName(artKey) || name;
 
@@ -80,9 +91,15 @@ export function GameCard({
   }
   const cardTooltip = tooltipParts.length > 1 ? tooltipParts.join("\n") : undefined;
 
+  const badge = faction ? (
+    <FactionBadge faction={faction} size={badgePx} fraction2={resolved?.fraction_2} />
+  ) : null;
+
+  const artFilter = isGraveyard ? { filter: "saturate(0.25) brightness(0.85)" } : {};
+
   return (
     <div
-      className={`rounded-lg border-2 flex flex-row shadow-sm overflow-hidden ${isGraveyard ? "graveyard-card-bg border-[var(--zone-graveyard-border)] text-[var(--zone-graveyard-text)]" : "bg-white/95"}`}
+      className={`rounded-lg border-2 shadow-sm overflow-hidden relative ${isGraveyard ? "border-[var(--zone-graveyard-border)] text-[var(--zone-graveyard-text)]" : ""}`}
       style={{
         ...(isGraveyard ? {} : { borderColor }),
         width: spec.w,
@@ -91,78 +108,115 @@ export function GameCard({
       title={cardTooltip}
       translate="no"
     >
-      <div className="flex-1 min-w-0 flex flex-col" style={{ padding: spec.pad }}>
-      {/* Назва на всю ширину. Українські назви довші за англійські, і бейдж,
-          що стояв тут поруч, з'їдав чверть рядка — тому він переїхав у кут
-          арту, як на друкованих картах. */}
-      <div className={`shrink-0 min-w-0 flex items-start ${isGraveyardSize ? "justify-center" : ""}`}>
-        <span
-          // `block` тут стояти не може: він перебиває display:-webkit-box, на
-          // якому тримається line-clamp, і назва мовчки росла в третій рядок.
-          className={`font-semibold notranslate min-w-0 leading-tight break-words ${spec.nameLines === 3 ? "line-clamp-3" : "line-clamp-2"} ${isGraveyardSize ? "text-center w-full" : ""} ${isGraveyard ? "zone-graveyard-text" : "text-[#1e3a5f]"}`}
-          style={{ fontSize: spec.nameFontPx }}
-          title={shownName}
-        >
-          {shownName}
-        </span>
-      </div>
-
-      {/* Арт забирає собі весь вільний простір, який раніше з'їдав рядок імені. */}
-      <div
-        className="shrink-0 overflow-hidden rounded-[3px] relative"
-        style={{
-          height: spec.artH,
-          marginTop: 3,
-          marginBottom: spec.showFooter ? 3 : 0,
-          ...(isGraveyard ? { filter: "saturate(0.25) brightness(0.85)" } : {}),
-        }}
-      >
+      {/* Шар 1 — фон арту на всю карту, під назвою й підписом. */}
+      <div className="absolute inset-0" style={artFilter} aria-hidden>
         <CardArt
           artKey={artKey}
           faction={faction}
           size={size}
           fraction1={resolved?.fraction_1}
           fraction2={resolved?.fraction_2}
+          layer="background"
         />
-        {faction && !isGraveyardSize && (
-          <span className="absolute" style={{ left: 2, top: 2 }}>
-            <FactionBadge faction={faction} size={badgePx} fraction2={resolved?.fraction_2} />
-          </span>
-        )}
       </div>
 
-      {spec.showFooter && (
-      <div
-        className="text-[#1e3a5f]/80 flex-1 space-y-0.5 min-h-0 overflow-hidden"
-        style={{ fontSize: spec.footerFontPx }}
-      >
-        {abilityLabel && spec.showAbility && (
-          <div
-            className={`font-medium text-[#1e3a5f]/90 break-words leading-snug ${
-              spec.abilityLines === 2 ? "line-clamp-2" : spec.abilityLines === 3 ? "line-clamp-3" : "line-clamp-4"
-            }`}
+      {/* Шар 2 — вміст. Геометрія та сама, що й до повноекранного фону: висоти
+          перевірені на всіх семи розмірах, тому чіпати їх не варто. */}
+      <div className="relative h-full w-full flex flex-col" style={{ padding: spec.pad }}>
+        {/* Бейдж фракції стоїть у рядку назви, але не в потоці: назву він
+            посуває через `text-indent`, а той діє лише на перший рядок. Через
+            flex-сусідство бейдж з'їдав би ширину на всіх трьох рядках, і назви
+            на кшталт «Приборкувач Фамільярів» переставали вміщатися. */}
+        <div
+          className={`shrink-0 min-w-0 relative rounded-[3px] ${isGraveyardSize ? "text-center" : ""}`}
+          style={{ background: PLATE_NAME, paddingInline: 2, paddingBlock: 1 }}
+        >
+          {badgeInName && badge && (
+            <span className="absolute" style={{ left: 2, top: 1 }}>
+              {badge}
+            </span>
+          )}
+          <span
+            // `block` тут стояти не може: він перебиває display:-webkit-box, на
+            // якому тримається line-clamp, і назва мовчки росла в третій рядок.
+            className={`font-semibold notranslate min-w-0 leading-tight break-words text-[#1e3a5f] ${spec.nameLines === 3 ? "line-clamp-3" : "line-clamp-2"} ${isGraveyardSize ? "text-center w-full" : ""}`}
+            style={{
+              fontSize: spec.nameFontPx,
+              ...(badgeInName && badge ? { textIndent: badgePx + 3 } : {}),
+            }}
+            title={shownName}
           >
-            {withIcons(abilityLabel, iconPx)}
+            {shownName}
+          </span>
+        </div>
+
+        {/* Шар 2б — фігура. Живе саме в проміжку між назвою й підписом, тому
+            текст ніколи на неї не лягає. Фон сюди не малюється: він уже під нею.
+
+            Висота гнучка: `artH` — це бажаний розмір, а не жорсткий. Раніше вона
+            була фіксованою, і підпис на три рядки плюс рядок маркерів просто не
+            вміщався — нижній рядок обрізало на пів висоти. Тепер зайве віддає
+            арт, і це майже безкоштовно: фон карти малюється на весь її розмір,
+            тож менший бокс фігури не лишає по собі порожнечі. */}
+        <div
+          className="relative"
+          style={{
+            flex: `0 1 ${spec.artH}px`,
+            minHeight: Math.round(spec.artH * 0.3),
+            marginTop: 3,
+            marginBottom: spec.showFooter ? 3 : 0,
+            ...artFilter,
+          }}
+        >
+          <CardArt
+            artKey={artKey}
+            faction={faction}
+            size={size}
+            fraction1={resolved?.fraction_1}
+            fraction2={resolved?.fraction_2}
+            layer="figure"
+          />
+          {!badgeInName && badge && (
+            <span className="absolute" style={{ left: 0, top: 0 }}>
+              {badge}
+            </span>
+          )}
+        </div>
+
+        {spec.showFooter && (
+          <div
+            // shrink-0: підпис бере стільки, скільки треба його рядкам, і не
+            // ділить залишок з артом. Верхню межу задає line-clamp.
+            className="text-[#1e3a5f]/85 shrink-0 space-y-0.5 overflow-hidden rounded-[3px]"
+            style={{ fontSize: spec.footerFontPx, background: PLATE, paddingInline: 2, paddingBlock: 1 }}
+          >
+            {abilityLabel && spec.showAbility && (
+              <div
+                className={`font-medium text-[#1e3a5f] break-words leading-snug ${
+                  spec.abilityLines === 2 ? "line-clamp-2" : spec.abilityLines === 3 ? "line-clamp-3" : "line-clamp-4"
+                }`}
+              >
+                {withIcons(abilityLabel, iconPx)}
+              </div>
+            )}
+            {markersShort && (
+              <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 font-semibold">
+                {withIcons(markersShort, iconPx + 1)}
+              </div>
+            )}
+            {!abilityLabel && !markersShort && hasMarkersOnly && (
+              <span className="text-[#1e3a5f]/70 italic">Маркери за правилами</span>
+            )}
+            {!abilityLabel && !markersShort && !hasMarkersOnly && (red_delta !== 0 || green_delta !== 0) && (
+              <div className="flex flex-wrap gap-1">
+                {red_delta > 0 && <span className="text-[var(--red)]">+{red_delta} R</span>}
+                {red_delta < 0 && <span className="text-[var(--red)]">{red_delta} R</span>}
+                {green_delta > 0 && <span className="text-[var(--green)]">+{green_delta} G</span>}
+                {green_delta < 0 && <span className="text-[var(--green)]">{green_delta} G</span>}
+              </div>
+            )}
           </div>
         )}
-        {markersShort && (
-          <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 font-semibold">
-            {withIcons(markersShort, iconPx + 1)}
-          </div>
-        )}
-        {!abilityLabel && !markersShort && hasMarkersOnly && (
-          <span className="text-[#1e3a5f]/70 italic">Маркери за правилами</span>
-        )}
-        {!abilityLabel && !markersShort && !hasMarkersOnly && (red_delta !== 0 || green_delta !== 0) && (
-          <div className="flex flex-wrap gap-1">
-            {red_delta > 0 && <span className="text-[var(--red)]">+{red_delta} R</span>}
-            {red_delta < 0 && <span className="text-[var(--red)]">{red_delta} R</span>}
-            {green_delta > 0 && <span className="text-[var(--green)]">+{green_delta} G</span>}
-            {green_delta < 0 && <span className="text-[var(--green)]">{green_delta} G</span>}
-          </div>
-        )}
-      </div>
-      )}
       </div>
     </div>
   );
