@@ -82,6 +82,63 @@ function wave(y: number): string {
   return `M0 ${y}Q12.5 ${y - 3} 25 ${y}T50 ${y}`;
 }
 
+/**
+ * Розмиття кордону земель.
+ *
+ * На стиках 4↔5 (вода і ліс) та 8↔9 (місто й зона війни) палітри розходяться
+ * повністю, і межа читалася як склейка двох різних картинок: море обривалося
+ * серед хвилі, за нею одразу починався ліс. Тут сусідня земля проступає крізь
+ * свою — з обох боків шва, тож біля самої лінії обидві клітинки показують
+ * приблизно порівну, і перехід виходить поступовим.
+ *
+ * Смугами зі спадною прозорістю, а не `<linearGradient>`: градієнту потрібен
+ * `id`, а на треку дванадцять таких сцен — ідентифікатори зіткнулися б. Те саме
+ * правило, що й для деталей арту карт.
+ *
+ * Смуги перекриваються на 0.4 одиниці: суміжні краї при масштабуванні дають
+ * білі волосини, і на клітинці 75px вони видно.
+ */
+const BLEND_STEPS = 10;
+const BLEND_W = 22;
+
+function LandBlend({
+  side,
+  top,
+  bottom,
+  split,
+  max = 0.55,
+}: {
+  side: "left" | "right";
+  /** Колір сусідньої землі вище лінії поділу та нижче неї. */
+  top: string;
+  bottom: string;
+  split: number;
+  max?: number;
+}) {
+  const step = BLEND_W / BLEND_STEPS;
+  return (
+    <g>
+      {Array.from({ length: BLEND_STEPS }, (_, j) => {
+        const x = side === "right" ? 50 - BLEND_W + j * step : j * step;
+        // Найщільніша смуга стоїть біля самого шва: праворуч це остання, ліворуч — перша.
+        const k = side === "right" ? j + 1 : BLEND_STEPS - j;
+        return (
+          <g key={j} opacity={(max * k) / BLEND_STEPS}>
+            <rect x={x} y={0} width={step + 0.4} height={split} fill={top} />
+            <rect x={x} y={split} width={step + 0.4} height={150 - split} fill={bottom} />
+          </g>
+        );
+      })}
+    </g>
+  );
+}
+
+/** Небо й вода — те, чим земля «water» виглядає здалеку. */
+const WATER_BLEND = { top: SKY, bottom: SEA, split: 58 } as const;
+/** Ліс угорі, місто внизу — поділ рівно посередині, як у самій сцені. */
+const MID_BLEND = { top: "#a8cf8a", bottom: "#cbb894", split: 75 } as const;
+const DEAD_BLEND = { top: DEAD_SKY, bottom: DEAD_GROUND, split: 86 } as const;
+
 function CellScenery({ n }: { n: number }) {
   const land = landOf(n);
   return (
@@ -138,6 +195,7 @@ function CellScenery({ n }: { n: number }) {
               </g>
             </g>
           )}
+          {n === 4 && <LandBlend side="right" {...MID_BLEND} />}
         </>
       )}
 
@@ -212,6 +270,8 @@ function CellScenery({ n }: { n: number }) {
           <g stroke={WALL} strokeWidth="0.8" opacity="0.45">
             <path d="M0 138 H50M0 144 H50M8 132 V150M20 132 V150M32 132 V150M44 132 V150" />
           </g>
+          {n === 5 && <LandBlend side="left" {...WATER_BLEND} />}
+          {n === 8 && <LandBlend side="right" {...DEAD_BLEND} />}
         </>
       )}
 
@@ -246,6 +306,7 @@ function CellScenery({ n }: { n: number }) {
           <g fill="#ffffff" opacity="0.08">
             <rect x="0" y="126" width="50" height="5" />
           </g>
+          {n === 9 && <LandBlend side="left" {...MID_BLEND} />}
         </>
       )}
     </svg>
@@ -364,11 +425,10 @@ export function MarkerToken({
         <circle cx="16" cy="16" r="12.6" fill={base} />
         {/* Блік верхньої півсфери — жетон має читатися опуклим. */}
         <path d="M3.4 16a12.6 12.6 0 0 1 25.2 0z" fill="#ffffff" opacity="0.2" />
-        {/* Насічка обода: пунктирне коло дешевше за вісім окремих рисок. */}
-        <circle
-          cx="16" cy="16" r="13.9" fill="none"
-          stroke="#ffffff" strokeWidth="1.1" opacity="0.38" strokeDasharray="2 2.7"
-        />
+        {/* Насічки обода тут немає. Пунктирне коло по краю читалося не як
+            карбування, а як брудна штрихова обвідка навколо емблеми, і
+            конкурувало з нею за увагу: емблема біла, і риски були білі. Обід
+            тримається кольором `rim` і бліком — цього досить. */}
         {isRed ? (
           // Вежа з зубцями: Імперія. Ромб нічого не позначав — тепер жетон на
           // треку й бейдж фракції на картах показують ту саму річ.
@@ -622,13 +682,19 @@ export function CentralBoard({
             {/* Окремої кнопки «Брати» немає: колода й була кнопкою, тож поруч
                 стояли два елементи з однією дією. Лишилася сама стопка —
                 клацання по ній і бере карту. Обвід на наведенні показує, що
-                вона натискається, замість підпису. */}
+                вона натискається, замість підпису.
+
+                Вимкнена кнопка не гасне. Гасіння тут не позначало «не можна
+                натиснути», а вибілювало саму колоду: гавань стояла поруч із
+                пустошем і цвинтарем, у яких стопки не в кнопках, і рубашка в
+                ній була блідішою за ті самі рубашки за два сантиметри. Стан
+                кнопки несе курсор і відсутність обводу на наведенні. */}
             <button
               type="button"
               disabled={!canDraw}
               onClick={() => canDraw && onDrawFromHarbor()}
               title={canDraw ? "Взяти карту з гавані" : "Гавань"}
-              className="flex flex-col items-center rounded-lg transition-all disabled:cursor-not-allowed disabled:opacity-60 enabled:hover:ring-2 enabled:hover:ring-[var(--accent)]"
+              className="flex flex-col items-center rounded-lg transition-all disabled:cursor-not-allowed enabled:hover:ring-2 enabled:hover:ring-[var(--accent)]"
             >
               <CardStack borderColor="var(--zone-harbor-border)" />
             </button>

@@ -13,7 +13,6 @@
 
 import { memo } from "react";
 import type { CardSizeToken } from "../cardSizes";
-import { ART_LOD } from "./lod";
 import { ART_VIEWBOX } from "./types";
 
 const { w: VW, h: VH } = ART_VIEWBOX;
@@ -48,10 +47,18 @@ function corner(x: number, y: number, sx: number, sy: number): string {
   return `M${x + 10 * sx} ${y}Q${x} ${y} ${x} ${y + 10 * sy}`;
 }
 
-export const CardBack = memo(function CardBack({ size }: { size: CardSizeToken }) {
-  const { lod } = ART_LOD[size];
-  const detailed = lod >= 1;
-
+/**
+ * Малюнок один на всі розміри, без рівнів деталізації.
+ *
+ * Доти дрібні рубашки (чужа рука, лідер) губили кільця, короткі промені й кутові
+ * дуги — на столі поруч опинялися дві різні сорочки, і закрита карта суперника
+ * не збігалася з колодою гавані. Різні рубашки — це натяк, що карти різні, а
+ * рівно цього гра й не має говорити.
+ *
+ * Коштує це небагато: композиція фіксована, і навіть повністю це 19 фігур —
+ * менше, ніж у будь-якої відкритої карти з фігурою й фоном.
+ */
+export const CardBack = memo(function CardBack({ size: _size }: { size: CardSizeToken }) {
   return (
     <svg
       viewBox={`0 0 ${VW} ${VH}`}
@@ -63,20 +70,18 @@ export const CardBack = memo(function CardBack({ size }: { size: CardSizeToken }
     >
       <rect x={0} y={0} width={VW} height={VH} fill={CARD_BACK_FIELD} />
 
-      {detailed && (
-        <g fill="none" stroke={GOLD} opacity={0.35}>
-          <circle cx={CX} cy={CY} r={36} strokeWidth={0.8} />
-          <circle cx={CX} cy={CY} r={32} strokeWidth={0.8} />
-          <g strokeWidth={1.2} strokeLinecap="round">
-            <path d={corner(12, 12, 1, 1)} />
-            <path d={corner(VW - 12, 12, -1, 1)} />
-            <path d={corner(12, VH - 12, 1, -1)} />
-            <path d={corner(VW - 12, VH - 12, -1, -1)} />
-          </g>
+      <g fill="none" stroke={GOLD} opacity={0.35}>
+        <circle cx={CX} cy={CY} r={36} strokeWidth={0.8} />
+        <circle cx={CX} cy={CY} r={32} strokeWidth={0.8} />
+        <g strokeWidth={1.2} strokeLinecap="round">
+          <path d={corner(12, 12, 1, 1)} />
+          <path d={corner(VW - 12, 12, -1, 1)} />
+          <path d={corner(12, VH - 12, 1, -1)} />
+          <path d={corner(VW - 12, VH - 12, -1, -1)} />
         </g>
-      )}
+      </g>
 
-      {detailed && SHORT_RAYS.map((d, i) => <path key={`s${i}`} d={d} fill={GOLD} opacity={0.45} />)}
+      {SHORT_RAYS.map((d, i) => <path key={`s${i}`} d={d} fill={GOLD} opacity={0.45} />)}
       {LONG_RAYS.map((d, i) => <path key={`l${i}`} d={d} fill={GOLD} opacity={0.85} />)}
       <circle cx={CX} cy={CY} r={5} fill={CARD_BACK_FIELD} stroke={GOLD} strokeWidth={1.4} />
 
