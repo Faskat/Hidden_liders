@@ -6,8 +6,18 @@ import { useCardsCatalog } from "@/app/contexts/CardsCatalogContext";
 import { GameCard } from "./Card";
 import { CardBack, CARD_BACK_FIELD } from "@/lib/cardart/CardBack";
 import { CARD_SIZES } from "@/lib/cardSizes";
+import { hoverAnchor, type HoverHandler } from "./constants";
 
-const WAR_AREA_BG = "rgba(30, 58, 95, 0.35)";
+/** Клітинки треку сили: 1-8 звичайні, 9-12 — зона війни. */
+const TRACK_CELLS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+
+/**
+ * Габарит жетона на треку.
+ *
+ * Впирається в ширину клітинки, а не у смак: центр дошки віддає треку близько
+ * 330px на дванадцять клітинок, тож на жетон лишається 22px разом із відступами.
+ */
+const TOKEN_PX = 22;
 
 /** Колоди, порожні слоти таверни й цвинтар — усі розміром із карту цвинтаря. */
 const SLOT = CARD_SIZES.graveyard;
@@ -15,43 +25,59 @@ const SLOT = CARD_SIZES.graveyard;
 const ZONE_PANEL = "rounded-xl glass-panel p-2";
 const ZONE_HEADER = "text-xs font-semibold uppercase tracking-wider board-label zone-header mb-1";
 
-/** Game-style token for red (Imperials) and green (Highlanders) markers. Exported for PhaseBar. */
+/**
+ * Фішка маркера — карбований жетон, а не квадратик із символом.
+ *
+ * Малюється SVG, бо потрібні концентричні кола, насічений обід і блік: усе це
+ * прямокутною плашкою з текстовим символом не зобразити. Ідентифікаторів і
+ * градієнтів усередині немає — на полі одночасно живуть до шести жетонів, і
+ * `id` вони б розділили між собою. Об'єм робиться накладанням кіл з
+ * прозорістю, тінь — CSS-фільтром зовні (`.marker-3d`).
+ *
+ * Емблеми взято з фракцій, чиї маркери ці: ромб — Імперія, вістря — Племена.
+ * Експортується для PhaseBar.
+ */
 export function MarkerToken({
   variant,
   className = "",
   title,
   trail = false,
   preview = false,
+  size = 22,
 }: {
   variant: "red" | "green";
   className?: string;
   title?: string;
   trail?: boolean;
   preview?: boolean;
+  size?: number;
 }) {
-  const color = variant === "red" ? "var(--red)" : "var(--green)";
-  const symbol = variant === "red" ? "◆" : "▲";
+  const isRed = variant === "red";
+  const base = isRed ? "var(--red)" : "var(--green)";
+  const rim = isRed ? "#7b2b2b" : "#22551f";
   return (
     <span
-      className={`inline-flex items-center justify-center shrink-0 ${trail ? "marker-trail absolute" : ""} ${className}`}
-      style={{
-        width: 22,
-        height: 22,
-        borderRadius: "6px",
-        background: color,
-        border: `2px solid ${variant === "red" ? "rgba(184,74,74,0.6)" : "rgba(61,143,61,0.6)"}`,
-        boxShadow: preview
-          ? "0 2px 4px rgba(0,0,0,0.2)"
-          : "0 2px 6px rgba(0,0,0,0.3), 0 1px 0 rgba(255,255,255,0.15) inset",
-        color: "rgba(255,255,255,0.9)",
-        fontSize: 10,
-        fontWeight: 700,
-        opacity: preview ? 0.7 : 1,
-      }}
+      className={`inline-flex shrink-0 ${trail ? "marker-trail absolute" : ""} ${className}`}
+      style={{ width: size, height: size, opacity: preview ? 0.65 : 1 }}
       title={title}
       aria-hidden
     >
-      {symbol}
+      <svg viewBox="0 0 32 32" width={size} height={size} style={{ display: "block" }}>
+        <circle cx="16" cy="16" r="15.2" fill={rim} />
+        <circle cx="16" cy="16" r="12.6" fill={base} />
+        {/* Блік верхньої півсфери — жетон має читатися опуклим. */}
+        <path d="M3.4 16a12.6 12.6 0 0 1 25.2 0z" fill="#ffffff" opacity="0.2" />
+        {/* Насічка обода: пунктирне коло дешевше за вісім окремих рисок. */}
+        <circle
+          cx="16" cy="16" r="13.9" fill="none"
+          stroke="#ffffff" strokeWidth="1.1" opacity="0.38" strokeDasharray="2 2.7"
+        />
+        {isRed ? (
+          <path d="M16 8.4 L21.4 16 L16 23.6 L10.6 16 Z" fill="#ffffff" opacity="0.9" />
+        ) : (
+          <path d="M16 8.2 L23 22.4 L9 22.4 Z" fill="#ffffff" opacity="0.9" />
+        )}
+      </svg>
     </span>
   );
 }
@@ -129,7 +155,7 @@ export function CentralBoard({
   onDrawFromHarbor: () => void;
   previewRed?: number | null;
   previewGreen?: number | null;
-  onHoverCard?: (payload: { cardId: string; isPlayed: boolean } | null) => void;
+  onHoverCard?: HoverHandler;
 }) {
   const catalog = useCardsCatalog();
   const canDraw = phase === "DRAW" && isMyTurn && !loading;
@@ -167,45 +193,42 @@ export function CentralBoard({
         <p className="board-label zone-header text-sm font-semibold uppercase tracking-wider mb-2 text-center">
           Поле · Трек сили
         </p>
-        <div className="track-3d w-full max-w-2xl">
-          <div
-            className="track-3d-inner w-full flex overflow-hidden min-h-[80px] border-2"
-            style={{
-              borderColor: "rgba(30, 74, 110, 0.4)",
-              background: "var(--board-cream)",
-            }}
-          >
-          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => {
-            const isWarCell = n >= 9;
-            const pulse = isWarCell && bothInWarArea;
-            return (
-              <div
-                key={n}
-                className={`track-cell-3d flex-1 min-w-0 flex flex-col items-center justify-end py-3 px-1 rounded-none ${pulse ? "war-area-pulse" : ""}`}
-                style={{
-                  background: isWarCell ? WAR_AREA_BG : "rgba(255,255,255,0.7)",
-                }}
-              >
-                <span className="board-label text-sm font-semibold">{n}</span>
-                <div className="flex flex-col gap-1 mt-1.5 w-full items-center relative">
-                  {trail.red === n && <MarkerToken variant="red" trail title="Червоний (Імперія)" />}
-                  {trail.green === n && <MarkerToken variant="green" trail title="Зелений (Племена)" />}
-                  {showPreview && previewRed === n && (
-                    <MarkerToken variant="red" preview title="Прев’ю: червоний" />
-                  )}
-                  {showPreview && previewGreen === n && (
-                    <MarkerToken variant="green" preview title="Прев’ю: зелений" />
-                  )}
-                  {state.red_marker === n && (
-                    <MarkerToken variant="red" className="marker-3d" title="Червоний (Імперія)" />
-                  )}
-                  {state.green_marker === n && (
-                    <MarkerToken variant="green" className="marker-3d" title="Зелений (Племена)" />
-                  )}
+        <div className="power-track w-full max-w-2xl">
+          <div className="power-track-inner w-full flex">
+            {TRACK_CELLS.map((n) => {
+              const isWarCell = n >= 9;
+              const pulse = isWarCell && bothInWarArea;
+              const occupied = state.red_marker === n || state.green_marker === n;
+              return (
+                <div
+                  key={n}
+                  className={`power-cell ${isWarCell ? "power-cell--war" : ""} ${occupied ? "power-cell--active" : ""} ${pulse ? "war-area-pulse" : ""}`}
+                >
+                  {/* Позначка зони війни живе у самій клітинці, а не підписом
+                      збоку: підпис під треком губиться, а нахил дошки ще й
+                      відсуває його від клітинок, на які він показує. */}
+                  {isWarCell && <span className="power-cell-war-glyph" aria-hidden>⚔</span>}
+                  <span className="power-cell-num board-label">{n}</span>
+                  <div className="power-cell-slot">
+                    <span className="power-cell-socket" aria-hidden />
+                    {trail.red === n && <MarkerToken variant="red" size={TOKEN_PX} trail title="Червоний (Імперія)" />}
+                    {trail.green === n && <MarkerToken variant="green" size={TOKEN_PX} trail title="Зелений (Племена)" />}
+                    {showPreview && previewRed === n && (
+                      <MarkerToken variant="red" size={TOKEN_PX} preview title="Прев’ю: червоний" />
+                    )}
+                    {showPreview && previewGreen === n && (
+                      <MarkerToken variant="green" size={TOKEN_PX} preview title="Прев’ю: зелений" />
+                    )}
+                    {state.red_marker === n && (
+                      <MarkerToken variant="red" size={TOKEN_PX} className="marker-3d" title="Червоний (Імперія)" />
+                    )}
+                    {state.green_marker === n && (
+                      <MarkerToken variant="green" size={TOKEN_PX} className="marker-3d" title="Зелений (Племена)" />
+                    )}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
           </div>
         </div>
       </div>
@@ -218,24 +241,34 @@ export function CentralBoard({
           <div className={`flex flex-row gap-2 justify-center flex-wrap ${canDraw ? "tavern-breathe" : ""}`}>
             {state.tavern.map((slot, i) =>
               slot ? (
-                <button
+                // Наведення слухає обгортка, а не кнопка. Кнопка вимкнена поза
+                // фазою «Брати», а вимкнений елемент не породжує подій миші —
+                // саме через це прев'ю карти таверни працювало лише в того, чий
+                // зараз хід, хоча дивитися на таверну має право будь-хто.
+                <span
                   key={i}
-                  type="button"
-                  disabled={!canDraw}
-                  onClick={() => canDraw && onDrawFromTavern(i)}
-                  onMouseEnter={() => onHoverCard?.({ cardId: slot.card_id, isPlayed: false })}
+                  className="inline-block shrink-0"
+                  onMouseEnter={(e) =>
+                    onHoverCard?.({ cardId: slot.card_id, isPlayed: false, anchor: hoverAnchor(e.currentTarget) })
+                  }
                   onMouseLeave={() => onHoverCard?.(null)}
-                  className="shrink-0 text-left rounded-lg overflow-hidden shadow-md disabled:cursor-not-allowed hover:ring-2 hover:ring-[var(--accent)] transition-all disabled:opacity-90"
                 >
-                  <GameCard
-                    cardId={slot.card_id}
-                    variant="open"
-                    name={slot.name}
-                    faction={slot.faction}
-                    size="tiny"
-                    catalog={catalog}
-                  />
-                </button>
+                  <button
+                    type="button"
+                    disabled={!canDraw}
+                    onClick={() => canDraw && onDrawFromTavern(i)}
+                    className="shrink-0 text-left rounded-lg overflow-hidden shadow-md disabled:cursor-not-allowed hover:ring-2 hover:ring-[var(--accent)] transition-all disabled:opacity-90"
+                  >
+                    <GameCard
+                      cardId={slot.card_id}
+                      variant="open"
+                      name={slot.name}
+                      faction={slot.faction}
+                      size="tiny"
+                      catalog={catalog}
+                    />
+                  </button>
+                </span>
               ) : (
                 <button
                   key={i}
@@ -286,7 +319,15 @@ export function CentralBoard({
           <div className={`${ZONE_PANEL} zone-graveyard-panel flex flex-col items-center flex-1 min-w-0`} translate="no">
             <p className={`${ZONE_HEADER} zone-graveyard-text`}>Цвинтар</p>
             <div className="flex flex-col items-center">
-              <div className="rounded-lg overflow-hidden shadow-md shrink-0" style={{ width: SLOT.w, height: SLOT.h }}>
+              <div
+                className="rounded-lg overflow-hidden shadow-md shrink-0"
+                style={{ width: SLOT.w, height: SLOT.h }}
+                onMouseEnter={(e) =>
+                  top?.card_id &&
+                  onHoverCard?.({ cardId: top.card_id, isPlayed: true, anchor: hoverAnchor(e.currentTarget) })
+                }
+                onMouseLeave={() => onHoverCard?.(null)}
+              >
                 {top?.card_id ? (
                   <GameCard
                     cardId={top.card_id}

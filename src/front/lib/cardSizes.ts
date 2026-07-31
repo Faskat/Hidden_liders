@@ -17,7 +17,8 @@ export type CardSizeToken =
   | "small"
   | "normal"
   | "large"
-  | "xlarge";
+  | "xlarge"
+  | "preview";
 
 export type CardSizeSpec = {
   w: number;
@@ -37,10 +38,8 @@ export type CardSizeSpec = {
    * Стеля рядків під назву — саме стеля, а не резерв: коротка назва все одно
    * займе один рядок.
    *
-   * Три рядки від `small` і вище, чотири на плитках 52-80px. Двох вистачало,
-   * поки назви не стали набиратися капітеллю: верхній регістр ширший за нижній,
-   * і «Консервований Кавалерист» перестав влазити. Зайвий рядок нічого не
-   * коштує коротким назвам — стеля спрацьовує лише на довгих.
+   * Три рядки від `small` і вище, чотири на плитках 52-80px. Зайвий рядок нічого
+   * не коштує коротким назвам — стеля спрацьовує лише на довгих.
    */
   nameLines: 2 | 3 | 4;
   footerFontPx: number;
@@ -58,14 +57,26 @@ export type CardSizeSpec = {
 
 export const CARD_ASPECT = 1.4;
 
+/**
+ * Кегль назви розрахований на нижній регістр.
+ *
+ * Доти назви набиралися капітеллю, і кожен рядок був відчутно ширшим за той
+ * самий текст малими літерами — звідси й завищений кегль, який мусив тримати
+ * баланс із рештою карти. Без капітелі та сама назва займає менше місця, тому
+ * кегль опущено на один-два пункти на кожному токені: пропорція «назва до
+ * карти» лишилася тією ж, а тексту в рядок влазить більше.
+ */
 export const CARD_SIZES: Record<CardSizeToken, CardSizeSpec> = {
   graveyard:  { w:  60, h:  84, pad:  4, overlap: null, artH: 36, nameFontPx:  8, nameLines: 4, footerFontPx:  0, abilityLines: 2, showAbility: false, showFooter: false },
   leaderMini: { w:  52, h:  73, pad:  4, overlap: null, artH: 26, nameFontPx:  8, nameLines: 4, footerFontPx:  8, abilityLines: 2, showAbility: false, showFooter: false },
-  tiny:       { w:  80, h: 112, pad:  6, overlap:  32,  artH: 44, nameFontPx: 10, nameLines: 4, footerFontPx:  9, abilityLines: 2, showAbility: false, showFooter: true  },
-  small:      { w: 100, h: 140, pad:  7, overlap:  40,  artH: 48, nameFontPx: 11, nameLines: 3, footerFontPx: 10, abilityLines: 3, showAbility: true,  showFooter: true  },
-  normal:     { w: 100, h: 140, pad:  7, overlap:  40,  artH: 48, nameFontPx: 11, nameLines: 3, footerFontPx: 10, abilityLines: 3, showAbility: true,  showFooter: true  },
-  large:      { w: 130, h: 182, pad:  9, overlap:  52,  artH: 68, nameFontPx: 13, nameLines: 3, footerFontPx: 11, abilityLines: 3, showAbility: true,  showFooter: true  },
-  xlarge:     { w: 160, h: 224, pad: 11, overlap:  64,  artH: 88, nameFontPx: 15, nameLines: 3, footerFontPx: 13, abilityLines: 4, showAbility: true,  showFooter: true  },
+  tiny:       { w:  80, h: 112, pad:  6, overlap:  32,  artH: 44, nameFontPx:  9, nameLines: 4, footerFontPx:  9, abilityLines: 2, showAbility: false, showFooter: true  },
+  small:      { w: 100, h: 140, pad:  7, overlap:  40,  artH: 48, nameFontPx: 10, nameLines: 3, footerFontPx: 10, abilityLines: 3, showAbility: true,  showFooter: true  },
+  normal:     { w: 100, h: 140, pad:  7, overlap:  40,  artH: 48, nameFontPx: 10, nameLines: 3, footerFontPx: 10, abilityLines: 3, showAbility: true,  showFooter: true  },
+  large:      { w: 130, h: 182, pad:  9, overlap:  52,  artH: 68, nameFontPx: 11, nameLines: 3, footerFontPx: 11, abilityLines: 3, showAbility: true,  showFooter: true  },
+  xlarge:     { w: 160, h: 224, pad: 11, overlap:  64,  artH: 88, nameFontPx: 13, nameLines: 3, footerFontPx: 13, abilityLines: 4, showAbility: true,  showFooter: true  },
+  // Прев'ю при наведенні. Найбільший розмір у грі й єдиний, який ніде не
+  // стоїть на столі, тому не бере участі в геометрії зон.
+  preview:    { w: 224, h: 314, pad: 15, overlap: null, artH: 132, nameFontPx: 17, nameLines: 3, footerFontPx: 15, abilityLines: 4, showAbility: true,  showFooter: true  },
 };
 
 /** Крок віяла: наскільки лівий край наступної карти зсунуто відносно попередньої. */

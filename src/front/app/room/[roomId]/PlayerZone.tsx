@@ -9,7 +9,7 @@ import { CardFan, type FanDirection } from "./CardFan";
 import { CARD_SIZES, type CardSizeToken } from "@/lib/cardSizes";
 import { CardBack } from "@/lib/cardart/CardBack";
 import { displayName } from "@/lib/cardNames";
-import { getHeroLimit, FACTION_STYLE, FACTION_LABEL } from "./constants";
+import { getHeroLimit, FACTION_STYLE, FACTION_LABEL, hoverAnchor, type HoverHandler } from "./constants";
 
 function isHeroRef(
   x: PlayerView["open_heroes"][number]
@@ -99,7 +99,7 @@ export function PlayerZone({
   gameEnded: boolean;
   totalPlayers?: number;
   winnerPlayerId?: string | null;
-  onHoverCard?: (payload: { cardId: string; isPlayed: boolean } | null) => void;
+  onHoverCard?: HoverHandler;
   discardMode?: boolean;
   selectedForDiscard?: string[];
   onToggleDiscardCard?: (cardId: string) => void;
@@ -356,7 +356,9 @@ export function PlayerZone({
                 <span
                   key={`${h.card_id}-${i}`}
                   className="inline-block"
-                  onMouseEnter={() => onHoverCard?.({ cardId: h.card_id, isPlayed: true })}
+                  onMouseEnter={(e) =>
+                    onHoverCard?.({ cardId: h.card_id, isPlayed: true, anchor: hoverAnchor(e.currentTarget) })
+                  }
                   onMouseLeave={() => onHoverCard?.(null)}
                 >
                   <GameCard
@@ -392,8 +394,9 @@ export function PlayerZone({
                       if (discardMode) onToggleDiscardCard?.(cid);
                       else if (canPlayToParty) onPlayCard(cid);
                     }}
-                    onMouseEnter={() => onHoverCard?.({ cardId: cid, isPlayed: false })}
-                    onMouseLeave={() => onHoverCard?.(null)}
+                    // Прев'ю на власній руці не потрібне: карта вже показана
+                    // найбільшим розміром у грі, а при наведенні ще й підіймається
+                    // з віяла. Панель прев'ю тут лише накривала б сусідні карти.
                     draggable={canPlayToParty && !discardMode}
                     onDragStart={(e) => {
                       if (canPlayToParty && !discardMode) {

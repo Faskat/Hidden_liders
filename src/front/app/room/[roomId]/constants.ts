@@ -1,3 +1,26 @@
+/**
+ * Наведення на карту для великого прев'ю.
+ *
+ * `anchor` — прямокутник самої карти у координатах вікна. Прев'ю ставиться
+ * поруч із ним, а не в фіксований кут екрана: карти живуть у столі, який
+ * рухається паном і зумом, тому єдина надійна позиція — та, що вимірюється в
+ * момент наведення.
+ */
+export type HoverAnchor = { left: number; top: number; width: number; height: number };
+export type HoverPayload = { cardId: string; isPlayed: boolean; anchor: HoverAnchor };
+export type HoverHandler = (payload: HoverPayload | null) => void;
+
+/**
+ * Прямокутник елемента під курсором.
+ *
+ * Саме `getBoundingClientRect`, а не координати миші: карта на чужому місці
+ * повернута на 90-180°, і прямокутник уже враховує поворот, а курсор — ні.
+ */
+export function hoverAnchor(el: Element): HoverAnchor {
+  const r = el.getBoundingClientRect();
+  return { left: r.left, top: r.top, width: r.width, height: r.height };
+}
+
 export const PHASE_STEPS = [
   { key: "PLAY", label: "Гра", description: "Зіграйте героя з руки на стіл або натисніть «Пропустити хід»." },
   { key: "DRAW", label: "Брати", description: "Візьміть 1 карту з гавані або з одного з слотів таверни." },

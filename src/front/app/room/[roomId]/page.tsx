@@ -24,7 +24,8 @@ import { CentralBoard } from "./CentralBoard";
 import { PlayerZone } from "./PlayerZone";
 import { CurrentVictor } from "./CurrentVictor";
 import { GameCard } from "./Card";
-import { PHASE_STEPS, FACTION_LABEL, FACTION_STYLE } from "./constants";
+import { PHASE_STEPS, FACTION_LABEL, FACTION_STYLE, type HoverPayload } from "./constants";
+import { CARD_SIZES } from "@/lib/cardSizes";
 import { getCardById } from "@/lib/cards";
 import { abilityNeedsTargetSelection } from "@/lib/abilityTargets";
 import type { PlayCardTargets } from "@/lib/types";
@@ -50,7 +51,7 @@ export default function RoomPage() {
   const [sessionLost, setSessionLost] = useState(false);
   const [copied, setCopied] = useState(false);
   const [rulesOpen, setRulesOpen] = useState(false);
-  const [hoveredCard, setHoveredCard] = useState<{ cardId: string; isPlayed: boolean } | null>(null);
+  const [hoveredCard, setHoveredCard] = useState<HoverPayload | null>(null);
   const [selectedForDiscard, setSelectedForDiscard] = useState<string[]>([]);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
@@ -64,7 +65,6 @@ export default function RoomPage() {
   const panStartRef = useRef({ x: 0, y: 0, clientX: 0, clientY: 0 });
   const gameTableWrapperRef = useRef<HTMLDivElement>(null);
   const gameTableContentRef = useRef<HTMLDivElement>(null);
-  const myZoneRef = useRef<HTMLDivElement>(null);
   const [panBounds, setPanBounds] = useState<{ minX: number; maxX: number; minY: number; maxY: number } | null>(null);
   const [previewPos, setPreviewPos] = useState<{ left: number; top: number } | null>(null);
   /** Дзеркало `zoom` для обробника колеса; синхронізується нижче. */
@@ -220,33 +220,37 @@ export default function RoomPage() {
   }, [zoom]);
 
   /**
-   * Прев'ю карти ставимо збоку від панелі гравця, а не в кут екрана.
+   * Прев'ю ставимо збоку від самої карти, а не збоку від панелі гравця.
    *
-   * Панель їздить разом зі столом (пан і зум), тому позицію рахуємо в момент
-   * наведення з її реального прямокутника. Ліворуч, бо праворуч від панелі —
-   * бічна колонка з таверною і зонами, і прев'ю накривало б саме те, з чим
-   * гравець порівнює карту. Якщо ліворуч місця немає — притискаємо до краю.
+   * Доти воно було прив'язане до нижньої панелі, тобто з'являлося за пів екрана
+   * від карти в таверні чи в чужій партії — доводилося шукати очима, що саме
+   * там показали. Тепер прямокутник приходить разом із наведенням.
+   *
+   * Спершу праворуч від карти, і лише якщо там не влазить — ліворуч. Прев'ю
+   * ніколи не лягає на саму карту: інакше воно перекрило б те, з чим гравець
+   * його порівнює, і зникло б від власного `mouseleave`.
    */
-  const PREVIEW_W = 192;
-  const PREVIEW_H = 256;
+  const PREVIEW_FRAME = 14;
+  const PREVIEW_GAP = 16;
+  const PREVIEW_W = CARD_SIZES.preview.w + PREVIEW_FRAME * 2;
+  const PREVIEW_H = CARD_SIZES.preview.h + PREVIEW_FRAME * 2;
   useEffect(() => {
     if (!hoveredCard) {
       setPreviewPos(null);
       return;
     }
-    const el = myZoneRef.current;
-    if (!el) {
-      setPreviewPos(null);
-      return;
-    }
-    const r = el.getBoundingClientRect();
-    const left = Math.max(8, r.left - 12 - PREVIEW_W);
-    const top = Math.min(
-      Math.max(8, r.top + r.height / 2 - PREVIEW_H / 2),
-      Math.max(8, window.innerHeight - PREVIEW_H - 8)
+    const a = hoveredCard.anchor;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    let left = a.left + a.width + PREVIEW_GAP;
+    if (left + PREVIEW_W > vw - 8) left = a.left - PREVIEW_GAP - PREVIEW_W;
+    left = Math.max(8, Math.min(left, vw - PREVIEW_W - 8));
+    const top = Math.max(
+      8,
+      Math.min(a.top + a.height / 2 - PREVIEW_H / 2, vh - PREVIEW_H - 8)
     );
     setPreviewPos({ left, top });
-  }, [hoveredCard]);
+  }, [hoveredCard, PREVIEW_W, PREVIEW_H]);
 
   useEffect(() => {
     const wrapper = gameTableWrapperRef.current;
@@ -938,14 +942,17 @@ export default function RoomPage() {
           </div>
         </header>
 
-        {/* Велике прев'ю карти під час наведення — збоку від панелі гравця. */}
+        {/* Велике прев'ю карти під час наведення — збоку від самої карти. */}
         {hoveredCard && cardPreview && previewPos && (
           <div
-            className="fixed z-40 pointer-events-none"
+            className="fixed z-[60] pointer-events-none"
             style={{ left: previewPos.left, top: previewPos.top, width: PREVIEW_W }}
             aria-hidden
           >
-            <div className="bg-black/50 rounded-2xl p-4 shadow-2xl pointer-events-none">
+            <div
+              className="bg-black/55 rounded-2xl shadow-2xl pointer-events-none"
+              style={{ padding: PREVIEW_FRAME }}
+            >
               <GameCard
                 cardId={hoveredCard.cardId}
                 variant="open"
@@ -953,7 +960,7 @@ export default function RoomPage() {
                 faction={cardPreview.faction}
                 red_delta={hoveredCard.isPlayed ? undefined : cardPreview.red_delta}
                 green_delta={hoveredCard.isPlayed ? undefined : cardPreview.green_delta}
-                size="xlarge"
+                size="preview"
                 catalog={s.cards}
               />
             </div>
@@ -1177,7 +1184,7 @@ export default function RoomPage() {
           )}
           {/* Bottom (me): always viewPlayers[0] — closer to power track */}
           {viewPlayers[0] && (
-            <div ref={myZoneRef} className="zone-bottom flex justify-center items-end pb-0 -mt-12" style={{ gridColumn: 2, gridRow: 3 }}>
+            <div className="zone-bottom flex justify-center items-end pb-0 -mt-12" style={{ gridColumn: 2, gridRow: 3 }}>
               <PlayerZone
                 player={me ?? viewPlayers[0]}
                 position="bottom"

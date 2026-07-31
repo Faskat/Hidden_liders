@@ -78,16 +78,20 @@ export function GameCard({
 
   const isGraveyardSize = size === "graveyard";
   /**
-   * На плитках до 80px бейдж лишається в куті арту. У рядку назви він зсуває
+   * На плитках 52-60px бейдж лишається в куті арту. У рядку назви він зсуває
    * перший рядок, а на такій ширині довге слово в цей залишок уже не влазить —
    * рядок просто лишається порожнім, і назва втрачає цілу смугу.
+   *
+   * З 80px (`tiny`) бейдж повернувся в рядок назви: без капітелі слово в тому
+   * самому кеглі стало помітно вужчим і в залишок після відступу вже влазить.
    */
-  const badgeInName = !isGraveyardSize && size !== "leaderMini" && size !== "tiny";
+  const badgeInName = !isGraveyardSize && size !== "leaderMini";
 
   /** Ключ арту — англійське ім'я з каталогу, а не card_id: див. lib/cardart/types.ts. */
   const artKey = catalogProp?.[cardId]?.name ?? resolved?.name ?? name;
   const iconPx = Math.max(9, spec.footerFontPx);
-  const badgePx = Math.round(spec.nameFontPx * 1.25);
+  // Нижня межа — щоб зменшений кегль назви не потягнув за собою бейдж у нечитне.
+  const badgePx = Math.max(11, Math.round(spec.nameFontPx * 1.25));
   /** Показуємо українською, а рушій арту й далі ключується англійською назвою. */
   const shownName = displayName(artKey) || name;
 

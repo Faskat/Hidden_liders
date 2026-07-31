@@ -109,13 +109,18 @@
   /**
    * Назва карти. Вузький гротеск: на 86px ширини він дає на два-три символи в
    * рядок більше за звичайний, а це різниця між «Консервований Вершник» у два
-   * рядки і в три. Верхній регістр і розрядка — від друкованих карт.
+   * рядки і в три.
+   *
+   * Без капітелі. Суцільний верхній регістр і ширший (кожна літера має габарит
+   * прописної), і повільніший у читанні: слово впізнається за силуетом, а
+   * капітель усі силуети зрівнює в прямокутник. На картці, де назву треба
+   * схопити краєм ока, це дорого коштує. Жирність піднято з 600 до 700, щоб
+   * зменшений кегль не втратив у вазі.
    */
   .font-card-title {
     font-family: var(--font-card), var(--font-body), system-ui, sans-serif;
-    text-transform: uppercase;
-    letter-spacing: 0.02em;
-    font-weight: 600;
+    letter-spacing: 0.01em;
+    font-weight: 700;
   }
 
   /** Текст здібності. Той самий гротеск, але без капіталізації й трохи щільніше. */
@@ -142,8 +147,18 @@
   .card-fan-item:hover .card-fan-item-inner {
     transform: var(--fan-hover, scale(1.15) translateY(-12px) rotate(0deg));
   }
+  /**
+   * Порядок карт у віялі приходить змінною, а не інлайновим `z-index`.
+   *
+   * Інлайновий стиль б'є будь-яке правило таблиці, тому підйом при наведенні
+   * не спрацьовував ніколи: карта збільшувалася, але лишалася під сусідніми,
+   * і навести на середню карту руки було неможливо — її накривала остання.
+   */
+  .card-fan-outer {
+    z-index: var(--fan-z, 0);
+  }
   .card-fan-outer:hover {
-    z-index: 10;
+    z-index: 100;
   }
 
   .zone-harbor-panel {
@@ -455,27 +470,128 @@
     pointer-events: none;
   }
 
-  /* 3D power track and markers */
-  .track-3d {
-    perspective: 800px;
-    transform-style: preserve-3d;
+  /**
+   * Трек сили.
+   *
+   * Дошка, а не смуга комірок: нахил, кремове поле, карбовані номери й
+   * заглиблені гнізда під жетони. Зона війни (9-12) відрізняється не тільки
+   * заливкою, а й фактурою — навскісна штриховка читається навіть тоді, коли
+   * колір губиться в темній темі.
+   */
+  .power-track {
+    perspective: 900px;
   }
-  .track-3d-inner {
-    transform: rotateX(4deg);
-    transform-style: preserve-3d;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2), 0 2px 8px rgba(0, 0, 0, 0.1);
-    border-radius: 0.75rem;
+  .power-track-inner {
+    display: flex;
+    transform: rotateX(7deg);
+    border-radius: 14px;
+    overflow: hidden;
+    border: 2px solid rgba(30, 74, 110, 0.45);
+    background: var(--board-cream);
+    box-shadow:
+      0 14px 32px rgba(0, 0, 0, 0.22),
+      inset 0 2px 0 rgba(255, 255, 255, 0.65),
+      inset 0 -8px 16px rgba(30, 74, 110, 0.12);
   }
-  .track-cell-3d {
-    transform-style: preserve-3d;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  /**
+   * `min-width` тут обов'язковий, а не косметичний.
+   *
+   * Колонка треку — те, що лишилося від центру після панелі таверни, і на
+   * чотирьох гравцях це 330px на дванадцять клітинок, тобто 25px на клітинку.
+   * Без нижньої межі клітинка стискається скільки завгодно, і жетон із гніздом
+   * вилазять за розділові лінії сусідніх.
+   *
+   * 24px — саме така межа, щоб на сьогоднішній розкладці вона не спрацьовувала:
+   * ширший поріг розсував би стіл, а стіл уже рівно по вікну, і правий гравець
+   * поїхав би за край. Габарит жетона підігнано під цю ширину, а не навпаки.
+   */
+  .power-cell {
+    position: relative;
+    flex: 1 1 0;
+    min-width: 24px;
+    min-height: 82px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    padding: 8px 1px 10px;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0.4));
+    transition: box-shadow 0.25s ease;
   }
-  .track-cell-3d:not(:last-child) {
-    border-right: 1px solid rgba(30, 74, 110, 0.25);
+  .power-cell + .power-cell {
+    border-left: 1px solid rgba(30, 74, 110, 0.18);
   }
+  .power-cell--war {
+    background:
+      repeating-linear-gradient(
+        135deg,
+        rgba(184, 74, 74, 0.16) 0 7px,
+        rgba(184, 74, 74, 0.04) 7px 14px
+      ),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0.2));
+  }
+  /** Клітинка з жетоном підсвічується — око знаходить позицію без перерахунку. */
+  .power-cell--active {
+    box-shadow:
+      inset 0 0 0 2px var(--accent),
+      inset 0 0 18px rgba(201, 162, 39, 0.22);
+  }
+  .power-cell-war-glyph {
+    position: absolute;
+    top: 6px;
+    right: 4px;
+    font-size: 9px;
+    line-height: 1;
+    color: var(--red);
+    opacity: 0.45;
+    pointer-events: none;
+  }
+  .power-cell-num {
+    width: 19px;
+    height: 19px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1;
+    background: rgba(30, 74, 110, 0.1);
+    box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.5);
+  }
+  .power-cell--war .power-cell-num {
+    background: rgba(184, 74, 74, 0.18);
+  }
+  .power-cell-slot {
+    position: relative;
+    width: 100%;
+    min-height: 30px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+  }
+  /** Гніздо під жетон: порожня клітинка теж має виглядати як місце на дошці. */
+  .power-cell-socket {
+    position: absolute;
+    top: 1px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 23px;
+    height: 23px;
+    border-radius: 50%;
+    background: rgba(30, 74, 110, 0.05);
+    box-shadow: inset 0 2px 3px rgba(30, 74, 110, 0.2);
+    pointer-events: none;
+  }
+  /**
+   * Тінь жетона — фільтром, а не `box-shadow`: жетон тепер круглий SVG на
+   * прозорому тлі, і прямокутна тінь торкала б кутами сусідні клітинки.
+   */
   .marker-3d {
-    transform: translateZ(4px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35), 0 2px 4px rgba(0, 0, 0, 0.2), 0 1px 0 rgba(255, 255, 255, 0.25) inset !important;
+    position: relative;
+    z-index: 1;
+    filter: drop-shadow(0 4px 5px rgba(0, 0, 0, 0.4));
   }
 
   /* Game table: grid and zones can shrink */

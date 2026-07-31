@@ -27,7 +27,13 @@ function getFanStyle(
   const n = total;
   const angle =
     n <= 1 ? 0 : -MAX_ANGLE_DEG + (2 * MAX_ANGLE_DEG / (n - 1)) * index;
-  const base = { width: cardWidth, height: cardHeight, zIndex: index };
+  // Порядок — через CSS-змінну: інлайновий `z-index` перебивав би правило
+  // `.card-fan-outer:hover`, і карта під курсором лишалася б під сусідніми.
+  const base = {
+    width: cardWidth,
+    height: cardHeight,
+    ["--fan-z" as string]: index,
+  } as React.CSSProperties;
 
   const bottomStyle = {
     ...base,
