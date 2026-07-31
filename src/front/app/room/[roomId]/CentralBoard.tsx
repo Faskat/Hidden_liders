@@ -11,6 +11,44 @@ import { hoverAnchor, type HoverHandler } from "./constants";
 /** Клітинки треку сили: 1-8 звичайні, 9-12 — зона війни. */
 const TRACK_CELLS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 
+/**
+ * Землі вздовж треку.
+ *
+ * Трек іде від води до цвинтаря: 1-4 — володіння Водного народу, 5-6 —
+ * передгір'я Племен, 7-8 — імперське місто, 9-12 — зона війни, яку тримають
+ * Невмерлі. Кожна ділянка має власну фактуру, а не лише відтінок: у темній темі
+ * кольори зближуються, а штриховка лишається різною.
+ */
+function landOf(n: number): "water" | "tribes" | "empire" | "dead" {
+  if (n <= 4) return "water";
+  if (n <= 6) return "tribes";
+  if (n <= 8) return "empire";
+  return "dead";
+}
+
+type Land = ReturnType<typeof landOf>;
+
+const LAND_TITLE: Record<Land, string> = {
+  water: "Володіння Водного народу",
+  tribes: "Передгір'я Племен",
+  empire: "Імперське місто",
+  dead: "Зона війни — Невмерлі",
+};
+
+/**
+ * Повні імена класів таблицею, а не `power-cell--${land}`.
+ *
+ * Tailwind шукає у вихідному коді саме повні імена й вичищає з `@layer
+ * components` усе, чого не знайшов, — склеєний рядок він не бачить. Уперше на
+ * ці граблі проєкт наступив із `line-clamp-${n}`.
+ */
+const LAND_CLASS: Record<Land, string> = {
+  water: "power-cell--water",
+  tribes: "power-cell--tribes",
+  empire: "power-cell--empire",
+  dead: "power-cell--dead",
+};
+
 /** Габарит жетона на треку: клітинка тепер 50px, і жетон росте разом із нею. */
 const TOKEN_PX = 34;
 
@@ -126,14 +164,21 @@ export function MarkerToken({
         {isRed ? (
           // Вежа з зубцями: Імперія. Ромб нічого не позначав — тепер жетон на
           // треку й бейдж фракції на картах показують ту саму річ.
-          <g fill="#ffffff" opacity="0.92">
-            <path d="M10.4 8.6h2.2v1.8h1.3V8.6h2.2v1.8h1.3V8.6h2.2v3H10.4z" />
-            <path d="M11.3 12h9.4v11.4h-9.4z" />
-            <path d="M14.8 17.4h2.4v6h-2.4z" fill={rim} opacity="0.75" />
-            <path d="M12.6 13.6h1.7v2.2h-1.7zm5.1 0h1.7v2.2h-1.7z" fill={rim} opacity="0.75" />
+          //
+          // Зубці й корпус навмисно перекриваються по вертикалі: у першій
+          // версії між ними лишалася щілина в чверть пікселя, і на жетоні це
+          // читалося як відірвана від вежі корона.
+          <g fill="#ffffff">
+            <path d="M11 9.6h2v1.7h2V9.6h2v1.7h2V9.6h2v3.8H11z" />
+            <path d="M11.9 12.8h8.2v9.8h-8.2z" />
+            <path d="M14.7 17.4h2.6v5.2h-2.6z" fill={rim} />
+            <path d="M13 15h1.6v2h-1.6zm4.4 0h1.6v2h-1.6z" fill={rim} />
           </g>
         ) : (
-          <path d="M16 8.2 L23 22.4 L9 22.4 Z" fill="#ffffff" opacity="0.9" />
+          // Гори: Племена. Один суцільний силует із двома вершинами. Снігові
+          // шапки другим тоном пробувалися й не пройшли — на 22px вони з'їдають
+          // самі вершини, тобто те, за чим гори й упізнаються.
+          <path d="M5.6 23 L12.6 9.4 L17.4 17.6 L20.6 12.2 L26.4 23 Z" fill="#ffffff" />
         )}
       </svg>
     </span>
@@ -263,10 +308,12 @@ export function CentralBoard({
               const isWarCell = n >= 9;
               const pulse = isWarCell && bothInWarArea;
               const occupied = state.red_marker === n || state.green_marker === n;
+              const land = landOf(n);
               return (
                 <div
                   key={n}
-                  className={`power-cell ${isWarCell ? "power-cell--war" : ""} ${occupied ? "power-cell--active" : ""} ${pulse ? "war-area-pulse" : ""}`}
+                  title={LAND_TITLE[land]}
+                  className={`power-cell ${LAND_CLASS[land]} ${isWarCell ? "power-cell--war" : ""} ${occupied ? "power-cell--active" : ""} ${pulse ? "war-area-pulse" : ""}`}
                 >
                   {/* Зона війни відділяється хвилястою межею, а не прямою
                       лінією, — так само як на дошці. Форма несе те саме, що й
@@ -279,7 +326,9 @@ export function CentralBoard({
                       />
                     </svg>
                   )}
-                  {isWarCell && <span className="power-cell-war-glyph" aria-hidden>⚔</span>}
+                  {/* Череп, а не схрещені мечі: ці чотири клітинки належать
+                      Невмерлим, і саме їхня умова перемоги тут спрацьовує. */}
+                  {isWarCell && <span className="power-cell-war-glyph" aria-hidden>☠</span>}
                   <div className="power-cell-slot">
                     <span className="power-cell-socket" aria-hidden />
                     {trail.red === n && <MarkerToken variant="red" size={TOKEN_PX} trail title="Червоний (Імперія)" />}
