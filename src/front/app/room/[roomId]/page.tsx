@@ -67,6 +67,8 @@ export default function RoomPage() {
   const myZoneRef = useRef<HTMLDivElement>(null);
   const [panBounds, setPanBounds] = useState<{ minX: number; maxX: number; minY: number; maxY: number } | null>(null);
   const [previewPos, setPreviewPos] = useState<{ left: number; top: number } | null>(null);
+  /** Дзеркало `zoom` для обробника колеса; синхронізується нижче. */
+  const zoomRef = useRef(1);
 
   const ZOOM_MIN = 0.65;
   const ZOOM_MAX = 1.4;
@@ -174,9 +176,48 @@ export default function RoomPage() {
    */
   const handleWheelZoom = useCallback((e: React.WheelEvent) => {
     if (e.ctrlKey || e.metaKey) return;
-    const delta = e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP;
-    setZoom((z) => Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, z + delta)));
-  }, []);
+    const wrapper = gameTableWrapperRef.current;
+    if (!wrapper) return;
+
+    // Поточний масштаб беремо з ref, а не зі стану: колесо встигає видати
+    // кілька подій до перемальовування, і на замиканні зі стану вони порахували
+    // б однакове `next` — прокрутка «залипала» б.
+    const z = zoomRef.current;
+    const next = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, z + (e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP)));
+    if (next === z) return;
+    zoomRef.current = next;
+
+    const rect = wrapper.getBoundingClientRect();
+    // Курсор у системі координат обгортки — саме ця точка має лишитися на місці.
+    const cx = e.clientX - rect.left;
+    const cy = e.clientY - rect.top;
+
+    /**
+     * Стіл малюється як `translate(pan) scale(zoom)` від лівого верхнього кута,
+     * тобто екранна точка = pan + zoom · точка_вмісту. Щоб точка під курсором
+     * не поїхала, після зміни масштабу зсув має стати
+     *   pan' = c − (zoom'/zoom)·(c − pan).
+     * Без цього зум завжди тягнув до лівого верхнього кута, і потрібне місце
+     * столу доводилося наздоганяти мишею.
+     */
+    const k = next / z;
+    setZoom(next);
+    setPan((prev) => {
+      const x = cx - k * (cx - prev.x);
+      const y = cy - k * (cy - prev.y);
+      if (!panBounds) return { x, y };
+      return {
+        x: Math.max(panBounds.minX, Math.min(panBounds.maxX, x)),
+        y: Math.max(panBounds.minY, Math.min(panBounds.maxY, y)),
+      };
+    });
+  }, [panBounds]);
+
+  // Кнопки «+»/«−» міняють `zoom` повз ref — синхронізуємо, інакше наступний
+  // оберт колеса стартував би від застарілого масштабу.
+  useEffect(() => {
+    zoomRef.current = zoom;
+  }, [zoom]);
 
   /**
    * Прев'ю карти ставимо збоку від панелі гравця, а не в кут екрана.

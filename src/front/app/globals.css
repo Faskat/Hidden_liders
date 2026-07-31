@@ -105,6 +105,24 @@
     font-family: var(--font-board-label), "Comic Sans MS", cursive;
     color: var(--zone-label);
   }
+
+  /**
+   * Назва карти. Вузький гротеск: на 86px ширини він дає на два-три символи в
+   * рядок більше за звичайний, а це різниця між «Консервований Вершник» у два
+   * рядки і в три. Верхній регістр і розрядка — від друкованих карт.
+   */
+  .font-card-title {
+    font-family: var(--font-card), var(--font-body), system-ui, sans-serif;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    font-weight: 600;
+  }
+
+  /** Текст здібності. Той самий гротеск, але без капіталізації й трохи щільніше. */
+  .font-card-text {
+    font-family: var(--font-body), system-ui, sans-serif;
+    letter-spacing: 0.005em;
+  }
   .board-label.zone-header {
     color: var(--zone-label);
     font-weight: 600;

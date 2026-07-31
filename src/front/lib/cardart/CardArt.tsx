@@ -185,6 +185,17 @@ export const CardArt = memo(function CardArt({
     return <Part key={slot} p={paint} lod={lod} />;
   };
 
+  /**
+   * Фон малюємо плоскою палітрою, без градієнтів.
+   *
+   * Не з міркувань економії: `<defs>` живуть у шарі фігури, і посилання
+   * `url(#…)` із шару фону вказувало б у порожнечу — заливка стала б чорною.
+   */
+  const renderFlat = ([slot, id]: [Slot, string]) => {
+    const Part = getPart(slot, id);
+    return Part ? <Part key={slot} p={palette} lod={lod} /> : null;
+  };
+
   const used = recipeSlots(recipe, slots);
   const backdrop = used.filter(([s]) => s === "backdrop");
   const beforeHead = used.filter(([s]) => s !== "backdrop" && !HEAD_GROUP.includes(s) && s !== "weapon" && s !== "fx");
@@ -212,17 +223,23 @@ export const CardArt = memo(function CardArt({
     >
       {shaded && layer !== "background" && <GradientDefs p={palette} gid={gid} />}
 
-      {layer !== "figure" && <Background p={palette} v={v} />}
+      {/* Декорація фракції (сосни, знамено, надгробок) живе на шарі фону, а не
+          за фігурою. За фігурою вона й малювалася в бокс висотою в третину
+          карти, де фігура закривала її майже цілком; на повній карті вона
+          нарешті видно з боків і над головою. */}
+      {layer !== "figure" && (
+        <>
+          <Background p={palette} v={v} />
+          {backdrop.map(renderFlat)}
+        </>
+      )}
 
       {layer !== "background" && (
-        <>
-          {backdrop.map(render)}
-          <g transform={figure}>
-            {beforeHead.map(render)}
-            <g transform={headTf}>{headGroup.map(render)}</g>
-            {afterHead.map(render)}
-          </g>
-        </>
+        <g transform={figure}>
+          {beforeHead.map(render)}
+          <g transform={headTf}>{headGroup.map(render)}</g>
+          {afterHead.map(render)}
+        </g>
       )}
 
       {/* Вуаль теми — єдине, що тут реагує на світлу/темну тему. Живе на шарі

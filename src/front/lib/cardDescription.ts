@@ -9,6 +9,12 @@
  * Орієнтир — друковані карти: там короткий дієслівний зворот плюс піктограма
  * зони. Піктограми підставляє `lib/cardart/abilityIcons.tsx` за словами, тож
  * назви зон із підписів прибирати не можна — саме до них чіпляються значки.
+ *
+ * ГОЛОВНЕ ПРАВИЛО: жодного підпису «взагалі». У колоді 50 різних форм
+ * здібностей, і кожна мусить мати свій текст. Загальні заглушки на кшталт
+ * «Обміняти карти» гірші за нуль: гравець бачить підпис, вірить йому й не
+ * дізнається ні що з чим міняється, ні куди підуть карти. Тому `ACTION_LABELS`
+ * — це аварійний вихід для форм, яких у даних немає, а не робочий шлях.
  */
 
 import type { AbilityDef } from "./types";
@@ -21,6 +27,7 @@ type MarkersObj = {
   red_alt?: number;
 } | undefined;
 
+/** Останній рубіж: форма здібності, якої немає в жодній із 72 карт колоди. */
 const ACTION_LABELS: Record<string, string> = {
   Kill: "Вбити героя",
   Bury: "Поховати героя",
@@ -46,7 +53,38 @@ const ACTION_LABELS: Record<string, string> = {
   Reveal_Harbor: "Показати гавань",
 };
 
-/** Draw source: звідки брати карти. */
+/** Скорочені назви фракцій: повні не вміщаються в рядок разом із дієсловом. */
+const FRACTION_SHORT: Record<string, string> = {
+  Waterfolk: "Водні",
+  Imperials: "Імперія",
+  Highlanders: "Плем.",
+  Undead: "Невм.",
+};
+
+/**
+ * Родовий відмінок — для зворотів на кшталт «крім …».
+ *
+ * Окрема таблиця, а не відмінювання на льоту: назв усього чотири, а будь-яке
+ * правило дало б «крім Імперія».
+ */
+const FRACTION_GENITIVE: Record<string, string> = {
+  Waterfolk: "Водних",
+  Imperials: "Імперії",
+  Highlanders: "Племен",
+  Undead: "Невмерлих",
+};
+
+function shortFraction(f: unknown): string {
+  const s = String(f ?? "");
+  return FRACTION_SHORT[s] ?? s;
+}
+
+function genitiveFraction(f: unknown): string {
+  const s = String(f ?? "");
+  return FRACTION_GENITIVE[s] ?? s;
+}
+
+/** Звідки брати карти. */
 const DRAW_SOURCE_LABELS: Record<string, string> = {
   Harbor: "з гавані",
   Tavern: "з таверни",
@@ -63,11 +101,46 @@ function formatDrawSource(source: string | string[] | undefined): string {
   return DRAW_SOURCE_LABELS[source as string] ?? (source as string);
 }
 
-/** Target for Flip/Look: чию карту. */
+/**
+ * Куди лягають узяті карти.
+ *
+ * Це не декоративна подробиця: «взяти 2 з таверни» і «взяти 2 з таверни, одна
+ * на стіл, одна в пустош» — різні ходи, а старий підпис показував їх однаково.
+ */
+const ZONE_SHORT: Record<string, string> = {
+  Party: "на стіл",
+  Party_face_down: "приховано",
+  Wilderness: "у пустош",
+  Hand: "у руку",
+  hand: "у руку",
+};
+
+function formatDistribution(dist: Record<string, number | "rest"> | undefined): string {
+  if (!dist) return "";
+  const parts = Object.entries(dist).map(([zone, n]) => {
+    const where = ZONE_SHORT[zone] ?? zone;
+    return n === "rest" ? `решта ${where}` : `${n} ${where}`;
+  });
+  return parts.join(", ");
+}
+
+/** Чию карту чіпаємо. Порожній рядок = будь-чию (у даних це відсутній target_player). */
+function ownerSuffix(ability: AbilityDef): string {
+  if (ability.target_player === "other") return " супротивника";
+  if (ability.target_player === "self") return " свою";
+  return "";
+}
+
+function faceWord(ability: AbilityDef, plural = false): string {
+  const faceDown = ability.visibility === "face_down" || !ability.visibility;
+  if (plural) return faceDown ? "приховані" : "лицьові";
+  return faceDown ? "приховану" : "лицьову";
+}
+
+/** Ціль Flip/Look: чию карту. */
 function formatFlipLookTarget(ability: AbilityDef): string {
   const isOther = ability.target_player === "other";
-  const faceDown = ability.visibility === "face_down" || !ability.visibility;
-  const face = faceDown ? "приховану" : "лицьову";
+  const face = faceWord(ability);
   // У «Перевернути/підглянути» саме дієслово вже займає пів рядка, тож власника
   // карти опускаємо — ця здібність і так завжди спрямована на супротивника.
   if (isOther) return ability.action === "Flip_Or_Look" ? face : `${face} супротивника`;
@@ -75,7 +148,7 @@ function formatFlipLookTarget(ability: AbilityDef): string {
   return `свою ${face}`;
 }
 
-/** Parse one Move_Markers effect e.g. "-1 leading" -> "лидируючий −1". */
+/** Один ефект Move_Markers: «-1 leading» → «провідний −1». */
 function formatMoveEffect(opt: string): string {
   const s = (opt || "").trim();
   const match = s.match(/^([+-]?\d+)\s+(leading|behind)$/i);
@@ -85,10 +158,26 @@ function formatMoveEffect(opt: string): string {
   return `${which} ${delta}`;
 }
 
-/** Human-readable condition: when the ability triggers. */
+/**
+ * Склеює ефекти Move_Markers, не повторюючи назву маркера двічі.
+ *
+ * «провідний −1 або провідний −3» — технічно правильно й нечитабельно; на карті
+ * це два зайвих слова там, де кожне на рахунку. Якщо всі ефекти про один і той
+ * самий маркер, називаємо його один раз.
+ */
+function joinMoveEffects(list: readonly string[], sep: string): string {
+  const parts = list.map(formatMoveEffect);
+  const heads = parts.map((s) => s.split(" ")[0]);
+  const same = heads.every((h) => h === heads[0]) && parts.length > 1;
+  if (!same) return parts.join(sep);
+  const tails = parts.map((s) => s.slice(heads[0].length + 1));
+  return `${heads[0]} ${tails.join(sep)}`;
+}
+
+/** Коли здібність спрацьовує. */
 const CONDITION_LABELS: Record<string, string> = {
   no_red_in_tavern: "Якщо в таверні немає червоних",
-  no_undead: "Якщо у вас немає невмерлих",
+  no_undead: "якщо немає невмерлих",
   green_behind_red: "Якщо зелений позаду червоного",
   red_behind_green: "Якщо червоний позаду зеленого",
   has_red_party: "Якщо у вас є червоні",
@@ -97,143 +186,166 @@ const CONDITION_LABELS: Record<string, string> = {
   has_face_down_green: "Якщо є прихований зелений",
 };
 
-/** What X is based on (for Calculation ability). */
+/** Від чого рахується X у здібності Calculation. */
 const X_SOURCE_LABELS: Record<string, string> = {
-  target_party_markers: "за героями",
+  target_party_markers: "за героями цілі",
   target_face_up_green: "за зеленими лицьовими",
   target_face_up_blue: "за синіми лицьовими",
   target_face_down_count: "за прихованими",
-  graveyard_count: "за картами в цвинтарі",
+  graveyard_count: "за картами цвинтаря",
   tavern_not_red: "за не-червоними в таверні",
   tavern_not_green: "за не-зеленими в таверні",
 };
 
-/** One-line label for ability. For Calculation, pass markers so we can describe ±X and x_source. */
+/** Куди кладемо взяту карту (для Draw з явним target). */
+function drawTargetSuffix(ability: AbilityDef): string {
+  const tgt = String(ability.target ?? "").toLowerCase();
+  if (!tgt) return "";
+  const faceDown = ability.visibility === "face_down";
+  if (tgt.includes("party")) return faceDown ? " і зіграти приховано" : " і зіграти на стіл";
+  return "";
+}
+
+/** Однорядковий підпис здібності. */
 export function getAbilityLabel(
   ability: AbilityDef | undefined,
   markers?: MarkersObj
 ): string {
   if (!ability?.action) return "";
-  if (ability.action === "Condition" && ability.condition) {
-    return CONDITION_LABELS[ability.condition] ?? `Умова: ${ability.condition}`;
+  const a: AbilityDef & { action: string } = { ...ability, action: ability.action };
+
+  if (a.action === "Condition" && a.condition) {
+    const label = CONDITION_LABELS[a.condition] ?? `Умова: ${a.condition}`;
+    return label.charAt(0).toUpperCase() + label.slice(1);
   }
-  if (ability.action === "Calculation" && ability.x_source) {
-    const xSource = ability.x_source;
-    const sourceText = X_SOURCE_LABELS[xSource] ?? xSource;
-    const needsTargetPlayer = [
-      "target_party_markers",
-      "target_face_up_green",
-      "target_face_up_blue",
-      "target_face_down_count",
-    ].includes(xSource);
-    // Підказку «оберіть гравця» не пишемо: під час гри вона й так з'являється
-    // в діалозі вибору цілі, а на карті вона з'їдала цілий рядок.
-    const suffix = "";
-    void needsTargetPlayer;
+
+  if (a.action === "Calculation" && a.x_source) {
+    const sourceText = X_SOURCE_LABELS[a.x_source] ?? a.x_source;
     const parts: string[] = [];
     const r = markers?.red;
     const g = markers?.green;
     if (r === "X" || r === "-X") parts.push(`${r === "X" ? "+X" : "−X"} R`);
     if (g === "X" || g === "-X") parts.push(`${g === "X" ? "+X" : "−X"} G`);
+    // Підказку «оберіть гравця» не пишемо: під час гри вона й так з'являється
+    // в діалозі вибору цілі, а на карті вона з'їдала цілий рядок.
     if (parts.length) return `${parts.join(", ")} ${sourceText}`;
-    return `Маркери X ${sourceText}${suffix}`;
+    return `Маркери X ${sourceText}`;
   }
-  if (ability.action === "Draw") {
-    const src = formatDrawSource(ability.source as string | string[] | undefined);
-    const count = ability.count;
-    const n = count && count > 1 ? `${count} карти ` : "";
-    return `Взяти ${n}${src}`.trim();
+
+  if (a.action === "Draw") {
+    const src = formatDrawSource(a.source as string | string[] | undefined);
+    const dist = formatDistribution(a.distribution);
+    const n = a.count && a.count > 1 ? `${a.count} карти ` : "";
+    if (dist) return `Взяти ${n}${src}: ${dist}`;
+    return `Взяти ${n}${src}${drawTargetSuffix(a)}`.trim();
   }
-  if (ability.action === "Flip" || ability.action === "Look" || ability.action === "Flip_Or_Look") {
-    const target = formatFlipLookTarget(ability);
+
+  if (a.action === "Draw_All_Tavern") {
+    const dist = formatDistribution(a.distribution);
+    return dist ? `Забрати всю таверну: ${dist}` : "Забрати всю таверну";
+  }
+
+  if (a.action === "Flip" || a.action === "Look" || a.action === "Flip_Or_Look") {
+    const target = formatFlipLookTarget(a);
+    const count = a.action === "Look" && a.count && a.count > 1 ? `${a.count} ` : "";
+    const plural = count ? faceWord(a, true) : target;
     const verb =
-      ability.action === "Flip"
+      a.action === "Flip"
         ? "Перевернути"
-        : ability.action === "Look"
+        : a.action === "Look"
           ? "Підглянути"
           : "Перевернути/підглянути";
+    if (count) return `${verb} ${count}${plural} супротивника`;
     return `${verb} ${target}`;
   }
-  if (ability.action === "Guess_Kill") {
+
+  if (a.action === "Guess_Kill") {
     return "Вгадати фракцію прихованої й вбити";
   }
-  if (ability.action === "Kill") {
-    const isOther = ability.target_player === "other";
-    const faceDown = ability.visibility === "face_down" || !ability.visibility;
-    const zone = ability.target_zone?.toLowerCase().includes("party") ? " на столі" : "";
-    const factionFilter = ability.filters?.fraction as string | undefined;
-    // Фракцію-фільтр скорочуємо: разом із «Вбити … супротивника» повна назва
-    // перекидала підпис на третій рядок, а він на карті 100×140 не поміщається.
-    const factionLabel = factionFilter ? ` (${factionFilter === "Waterfolk" ? "Водні" : factionFilter === "Imperials" ? "Імперія" : factionFilter === "Highlanders" ? "Плем." : factionFilter === "Undead" ? "Невм." : factionFilter})` : "";
-    if (isOther) {
-      return `Вбити ${faceDown ? "приховану" : "лицьову"} супротивника${factionLabel}`;
-    }
-    return `Вбити свою ${faceDown ? "приховану" : "лицьову"}${factionLabel}`;
+
+  if (a.action === "Kill" || a.action === "Kill_Random") {
+    const filter = a.filters?.fraction as string | undefined;
+    const tag = filter ? ` (${shortFraction(filter)})` : "";
+    const rnd = a.action === "Kill_Random" ? "випадкову " : "";
+    // Власник опускається навмисно, коли його немає в даних: у цих карт ціль —
+    // будь-який гравець, і дописати «свою» означало б збрехати про правило.
+    return `Вбити ${rnd}${faceWord(a)}${ownerSuffix(a)}${tag}`;
   }
-  if (ability.action === "Bury") {
-    return ability.target_player === "other"
-      ? "Поховати героя супротивника"
-      : "Поховати свого героя";
-  }
-  if (ability.action === "Kill_Dual") {
-    const targets = ability.targets ?? [];
-    if (
-      targets.includes("self_face_down") &&
-      targets.includes("other_face_down")
-    ) {
+
+  if (a.action === "Kill_Dual") {
+    const t = a.targets ?? [];
+    if (t.includes("self_face_down") && t.includes("other_face_down")) {
       return "Вбити свою приховану і супротивника";
     }
+    return "Вбити двох прихованих";
   }
-  if (ability.action === "Move_Markers") {
-    const options = ability.options ?? [];
-    const effects = ability.effects ?? [];
-    if (options.length > 0) {
-      // Без «Оберіть:» — саме «або» вже каже, що це вибір, а слово з'їдало рядок.
-      return options.map(formatMoveEffect).join(" або ");
-    }
-    if (effects.length > 0) {
-      const list = effects.map(formatMoveEffect).join(", ");
-      return list;
-    }
+
+  if (a.action === "Bury") {
+    return a.target_player === "other" ? "Поховати героя супротивника" : "Поховати свого героя";
   }
-  if (ability.action === "Perform_Self") {
-    return "Повторити свою приховану";
+
+  if (a.action === "Move_Markers") {
+    const options = a.options ?? [];
+    const effects = a.effects ?? [];
+    // `options` — гравець обирає один варіант; `effects` — застосовуються разом,
+    // якщо logic не каже інакше. Раніше обидва склеювались комою, і «або»
+    // мовчки перетворювалось на «і».
+    const join = String(a.logic ?? "AND").toUpperCase() === "OR" ? " або " : " і ";
+    if (options.length > 0) return joinMoveEffects(options, " або ");
+    if (effects.length > 0) return joinMoveEffects(effects, join);
   }
-  if (ability.action === "Perform") {
-    return "Повторити приховану карту";
+
+  if (a.action === "Perform_Self") return "Повторити свою приховану";
+  if (a.action === "Perform") return "Повторити свою приховану";
+  if (a.action === "Perform_Top") return "Повторити верхню карту цвинтаря";
+  if (a.action === "Bury_Perform") return "Поховати карту з таверни й повторити її";
+
+  if (a.action === "Reveal_Harbor") {
+    // «Показати N карт гавані» не влазить у три рядки разом з умовою, та ще й
+    // вимагає узгодження числівника. «Відкрити N з гавані» коротше і працює
+    // з будь-яким N.
+    const n = a.count ? `${a.count} ` : "";
+    const cond = a.condition ? `, ${CONDITION_LABELS[a.condition] ?? a.condition}` : "";
+    return `Відкрити ${n}з гавані${cond}`;
   }
-  if (ability.action === "Perform_Top") {
-    return "Повторити верхню карту цвинтаря";
-  }
-  if (ability.action === "Bury_Perform") {
-    return "Поховати карту з таверни й повторити її";
-  }
-  if (ability.action === "Place") {
-    const src = String(ability.source ?? "hand").toLowerCase();
-    const tgt = String(ability.target ?? "Party").toLowerCase();
-    const faceDown = ability.visibility === "face_down";
+
+  if (a.action === "Place") {
+    const src = String(a.source ?? "hand").toLowerCase();
+    const tgt = String(a.target ?? "Party").toLowerCase();
+    const faceDown = a.visibility === "face_down";
     if (src === "hand" && tgt.includes("party")) {
-      return faceDown ? "Зіграти приховано" : "Зіграти лицьовою вгору";
+      return faceDown ? "Зіграти ще одного приховано" : "Зіграти ще одного лицьовою";
     }
     return "Викласти карту на стіл";
   }
-  if (ability.action === "Swap") {
-    const src = String(ability.source ?? "").toLowerCase();
-    const tgt = String(ability.target ?? "").toLowerCase();
-    if ((src === "other_party" || src.includes("other")) && (tgt === "self_hand" || tgt.includes("hand") || tgt.includes("self"))) {
-      return "Забрати лицьову супротивника або обмін";
-    }
-    if (src === "hand" && tgt.includes("party_face_down")) {
-      return "Обміняти карту з руки на свою приховану";
-    }
+
+  if (a.action === "Swap") {
+    // Шість різних обмінів у колоді. Кожен має свій текст: що з чим міняється —
+    // це і є вся суть здібності, і саме її з'їдала заглушка «Обміняти карти».
+    const src = String(a.source ?? "").toLowerCase();
+    const tgt = String(a.target ?? "").toLowerCase();
+    if (src === "other_party" && tgt.includes("hand")) return "Забрати лицьову супротивника або обмін";
+    if (src === "face_up_party" && tgt.includes("hand")) return "Забрати лицьову на руку або обмін";
+    if (src === "hand" && tgt.includes("party_face_down")) return "Обміняти карту з руки на свою приховану";
+    if (src === "tavern" && tgt.startsWith("other")) return "Обміняти карту таверни на приховану супротивника";
+    if (src === "tavern" && tgt.startsWith("self")) return "Обміняти карту таверни на свою приховану";
+    if (src === "graveyard_top" && tgt.startsWith("self")) return "Обміняти верх цвинтаря на свою приховану";
   }
-  if (ability.action === "PlayExtra") {
-    return "Можна зіграти ще одного героя";
+
+  if (a.action === "Swap_Hand") {
+    return a.target_player === "other" ? "Обміняти руки з супротивником" : "Обміняти руки";
   }
-  return ACTION_LABELS[ability.action] ?? ability.action;
+
+  if (a.action === "PlayExtra") {
+    const not = a.filters?.not_fraction as string | undefined;
+    return not ? `Ще один герой, крім ${genitiveFraction(not)}` : "Можна зіграти ще одного героя";
+  }
+
+  const action = a.action;
+  return ACTION_LABELS[action] ?? action;
 }
 
-/** Short text for markers: numbers, or "X за ефектом", or choice description (e.g. "+1 G або +2 G"). */
+/** Короткий текст маркерів: числа, «X за ефектом» або опис вибору. */
 export function formatMarkersShort(markers: MarkersObj): string {
   if (!markers) return "";
   const r = markers.red;

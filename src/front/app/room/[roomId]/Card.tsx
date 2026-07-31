@@ -21,6 +21,18 @@ import { displayName } from "@/lib/cardNames";
 const PLATE = "rgba(255,255,255,0.82)";
 const PLATE_NAME = "rgba(255,255,255,0.88)";
 
+/**
+ * Класи обрізки за кількістю рядків.
+ *
+ * Таблицею, а не конкатенацією рядка: Tailwind шукає повні імена класів у
+ * вихідному коді, і `line-clamp-${n}` він просто не побачить.
+ */
+const NAME_CLAMP: Record<2 | 3 | 4, string> = {
+  2: "line-clamp-2",
+  3: "line-clamp-3",
+  4: "line-clamp-4",
+};
+
 export function GameCard({
   cardId,
   variant,
@@ -65,8 +77,12 @@ export function GameCard({
   }
 
   const isGraveyardSize = size === "graveyard";
-  /** На 52–60px завширшки бейдж у рядку імені з'їв би чверть рядка — там він лишається в куті. */
-  const badgeInName = !isGraveyardSize && size !== "leaderMini";
+  /**
+   * На плитках до 80px бейдж лишається в куті арту. У рядку назви він зсуває
+   * перший рядок, а на такій ширині довге слово в цей залишок уже не влазить —
+   * рядок просто лишається порожнім, і назва втрачає цілу смугу.
+   */
+  const badgeInName = !isGraveyardSize && size !== "leaderMini" && size !== "tiny";
 
   /** Ключ арту — англійське ім'я з каталогу, а не card_id: див. lib/cardart/types.ts. */
   const artKey = catalogProp?.[cardId]?.name ?? resolved?.name ?? name;
@@ -139,9 +155,13 @@ export function GameCard({
           <span
             // `block` тут стояти не може: він перебиває display:-webkit-box, на
             // якому тримається line-clamp, і назва мовчки росла в третій рядок.
-            className={`font-semibold notranslate min-w-0 leading-tight break-words text-[#1e3a5f] ${spec.nameLines === 3 ? "line-clamp-3" : "line-clamp-2"} ${isGraveyardSize ? "text-center w-full" : ""}`}
+            className={`font-card-title notranslate min-w-0 break-words text-[#16324f] ${NAME_CLAMP[spec.nameLines]} ${isGraveyardSize ? "text-center w-full" : ""}`}
             style={{
               fontSize: spec.nameFontPx,
+              // Явний інтерліньяж, а не `leading-tight`: у Oswald високі
+              // виносні елементи, і при 1.25 рядок вилазив за власний бокс —
+              // вимірювання ловило переповнення там, де візуально його не було.
+              lineHeight: 1.3,
               ...(badgeInName && badge ? { textIndent: badgePx + 3 } : {}),
             }}
             title={shownName}
@@ -161,7 +181,10 @@ export function GameCard({
         <div
           className="relative"
           style={{
-            flex: `0 1 ${spec.artH}px`,
+            // `1 1` , а не `0 1`: арт і росте, і стискається. Тільки-но підпис
+            // виявлявся коротким, під ним лишалася мертва смуга в 20-30px —
+            // тепер її забирає фігура й стає більшою.
+            flex: `1 1 ${spec.artH}px`,
             minHeight: Math.round(spec.artH * 0.3),
             marginTop: 3,
             marginBottom: spec.showFooter ? 3 : 0,
@@ -187,12 +210,12 @@ export function GameCard({
           <div
             // shrink-0: підпис бере стільки, скільки треба його рядкам, і не
             // ділить залишок з артом. Верхню межу задає line-clamp.
-            className="text-[#1e3a5f]/85 shrink-0 space-y-0.5 overflow-hidden rounded-[3px]"
+            className="font-card-text text-[#16324f] shrink-0 space-y-0.5 overflow-hidden rounded-[3px]"
             style={{ fontSize: spec.footerFontPx, background: PLATE, paddingInline: 2, paddingBlock: 1 }}
           >
             {abilityLabel && spec.showAbility && (
               <div
-                className={`font-medium text-[#1e3a5f] break-words leading-snug ${
+                className={`font-medium break-words leading-snug ${
                   spec.abilityLines === 2 ? "line-clamp-2" : spec.abilityLines === 3 ? "line-clamp-3" : "line-clamp-4"
                 }`}
               >
