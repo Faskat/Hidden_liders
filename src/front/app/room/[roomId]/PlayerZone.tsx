@@ -463,9 +463,19 @@ export function PlayerZone({
           </div>
         </div>
       </div>
-      {showLeaderModal && isMe && leader?.leader_card_id && (
+      {/**
+        * Обидва вікна виносяться в `body` порталом.
+        *
+        * `position: fixed` рахується від вікна лише доти, доки над елементом
+        * немає предка з `transform`. Панель гравця лежить у столі, а стіл
+        * зсувається й масштабується, тому «на весь екран» перетворювалося на
+        * «на весь стіл»: оверлей ставав 1903×1309, і вікно опинялося по центру
+        * столу — тобто за нижнім краєм екрана. Доти це не впадало в око лише
+        * тому, що стіл був завширшки приблизно як вікно.
+        */}
+      {showLeaderModal && isMe && leader?.leader_card_id && typeof document !== "undefined" && createPortal(
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+          className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60"
           onClick={() => setShowLeaderModal(false)}
         >
           <div
@@ -492,11 +502,12 @@ export function PlayerZone({
               Закрити
             </button>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
-      {showHiddenModal && ownHiddenCardIds.length > 0 && (
+      {showHiddenModal && ownHiddenCardIds.length > 0 && typeof document !== "undefined" && createPortal(
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+          className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60"
           onClick={() => setShowHiddenModal(false)}
         >
           <div
@@ -524,7 +535,8 @@ export function PlayerZone({
               Закрити
             </button>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );

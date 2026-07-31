@@ -19,19 +19,17 @@ const TRACK_CELLS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
  * Невмерлі. Кожна ділянка має власну фактуру, а не лише відтінок: у темній темі
  * кольори зближуються, а штриховка лишається різною.
  */
-function landOf(n: number): "water" | "tribes" | "empire" | "dead" {
+function landOf(n: number): "water" | "mid" | "dead" {
   if (n <= 4) return "water";
-  if (n <= 6) return "tribes";
-  if (n <= 8) return "empire";
+  if (n <= 8) return "mid";
   return "dead";
 }
 
 type Land = ReturnType<typeof landOf>;
 
 const LAND_TITLE: Record<Land, string> = {
-  water: "Володіння Водного народу",
-  tribes: "Передгір'я Племен",
-  empire: "Імперське місто",
+  water: "Океан і гавань — Водний народ",
+  mid: "Ліси Племен над містом Імперії",
   dead: "Зона війни — Невмерлі",
 };
 
@@ -44,13 +42,257 @@ const LAND_TITLE: Record<Land, string> = {
  */
 const LAND_CLASS: Record<Land, string> = {
   water: "power-cell--water",
-  tribes: "power-cell--tribes",
-  empire: "power-cell--empire",
+  mid: "power-cell--mid",
   dead: "power-cell--dead",
 };
 
 /** Габарит жетона на треку: клітинка тепер 50px, і жетон росте разом із нею. */
 const TOKEN_PX = 34;
+
+/**
+ * Краєвид клітинки.
+ *
+ * Замість штриховки — намальована місцевість, і саме поклітинно, а не смугою на
+ * весь трек: смуга не збігалася з межами клітинок, і кордон земель припадав на
+ * середину клітинки. Тепер кожна сцена живе у власній клітинці, а сусідні
+ * стикуються по краях (хвилі, лінія землі, дахи йдуть наскрізь).
+ *
+ * `preserveAspectRatio="none"` безпечний: клітинка має фіксовані 50×150, тобто
+ * рівно пропорції viewBox.
+ *
+ * Жодних `id` і градієнтів: на треку дванадцять таких сцен, ідентифікатори
+ * зіткнулися б — те саме правило, що й для деталей арту карт.
+ */
+const SKY = "#c3dcea";
+const SEA = "#4a90b8";
+const SEA_DEEP = "#2f6f96";
+const FOAM = "#e8f4fa";
+const WOOD = "#7a5334";
+const LEAF = "#4d7c3a";
+const LEAF_DARK = "#2f5a26";
+const ROOF = "#b8604c";
+const WALL = "#e0cfae";
+const STONE = "#9a9385";
+const DEAD_SKY = "#4a4458";
+const DEAD_GROUND = "#37324a";
+const DEAD_STONE = "#b4b0c4";
+
+/** Хвиля на всю ширину клітинки: період дорівнює 50, тож сусідні стикуються. */
+function wave(y: number): string {
+  return `M0 ${y}Q12.5 ${y - 3} 25 ${y}T50 ${y}`;
+}
+
+function CellScenery({ n }: { n: number }) {
+  const land = landOf(n);
+  return (
+    <svg className="power-cell-scene" viewBox="0 0 50 150" preserveAspectRatio="none" aria-hidden>
+      {land === "water" && (
+        <>
+          <rect x="0" y="0" width="50" height="58" fill={SKY} />
+          <rect x="0" y="58" width="50" height="92" fill={SEA} />
+          <rect x="0" y="104" width="50" height="46" fill={SEA_DEEP} opacity="0.5" />
+          <g fill="none" stroke={FOAM} strokeWidth="1.4" opacity="0.55">
+            <path d={wave(74)} />
+            <path d={wave(96)} />
+            <path d={wave(120)} />
+            <path d={wave(142)} />
+          </g>
+          {n === 1 && (
+            <g>
+              {/* Далеке вітрило на обрії. */}
+              <path d="M20 58 L20 44 L29 58 Z" fill="#ffffff" opacity="0.85" />
+              <path d="M17 58 h9 l-1.6 3 h-6.4 Z" fill={WOOD} />
+            </g>
+          )}
+          {n === 2 && (
+            <g>
+              {/* Скеля з води. */}
+              <path d="M8 70 L15 50 L23 70 Z" fill={STONE} />
+              <path d="M15 50 L18.4 59.5 L15 62 L11.6 59.5 Z" fill="#ffffff" opacity="0.5" />
+              <path d="M30 70 L34 60 L38 70 Z" fill={STONE} opacity="0.8" />
+            </g>
+          )}
+          {n === 3 && (
+            <g>
+              {/* Човен під вітрилом. */}
+              <path d="M25 40 L25 66 L38 66 Z" fill="#ffffff" opacity="0.9" />
+              <path d="M23.4 40 h1.6 v26 h-1.6 Z" fill={WOOD} />
+              <path d="M14 66 h24 l-4 7 h-16 Z" fill={WOOD} />
+            </g>
+          )}
+          {n === 4 && (
+            <g>
+              {/* Порт: пакгауз, кран і поміст на палях. */}
+              <rect x="4" y="30" width="20" height="22" fill={WALL} />
+              <path d="M2 30 L14 20 L26 30 Z" fill={ROOF} />
+              <rect x="11" y="40" width="6" height="12" fill={WOOD} />
+              <rect x="32" y="24" width="3" height="32" fill={WOOD} />
+              <path d="M33.5 26 L46 26 L46 30 L37 34 Z" fill={WOOD} />
+              <path d="M45 30 v9" stroke={WOOD} strokeWidth="1.2" />
+              <rect x="42" y="39" width="6" height="6" fill={ROOF} />
+              <rect x="0" y="52" width="50" height="5" fill={WOOD} />
+              <g fill={WOOD}>
+                <rect x="6" y="57" width="3.4" height="26" />
+                <rect x="24" y="57" width="3.4" height="30" />
+                <rect x="41" y="57" width="3.4" height="24" />
+              </g>
+            </g>
+          )}
+        </>
+      )}
+
+      {land === "mid" && (
+        <>
+          {/* Верхня половина — ліс Племен. */}
+          <rect x="0" y="0" width="50" height="75" fill="#a8cf8a" />
+          <rect x="0" y="0" width="50" height="24" fill={SKY} opacity="0.8" />
+          <g fill={LEAF}>
+            <path d="M2 68 L11 24 L20 68 Z" />
+            <path d="M28 70 L37 32 L46 70 Z" />
+          </g>
+          <g fill={LEAF_DARK} opacity="0.5">
+            <path d="M11 24 L16 48 L11 52 L6 48 Z" />
+            <path d="M37 32 L41 52 L37 55 L33 52 Z" />
+          </g>
+          <g fill={WOOD}>
+            <rect x="9.4" y="62" width="3.2" height="11" />
+            <rect x="35.4" y="64" width="3.2" height="9" />
+          </g>
+          {n % 2 === 1 ? (
+            <g>
+              {/* Хатина на дереві з драбиною — те, за чим ліс і впізнається. */}
+              <rect x="4" y="40" width="14" height="10" fill={WOOD} />
+              <path d="M2 40 L11 32 L20 40 Z" fill={ROOF} opacity="0.9" />
+              <rect x="9" y="44" width="4" height="6" fill={LEAF_DARK} />
+              <g stroke={WOOD} strokeWidth="1.2">
+                <path d="M9 50 v22M14 50 v22M9 55 h5M9 61 h5M9 67 h5" />
+              </g>
+            </g>
+          ) : (
+            <g>
+              <rect x="30" y="44" width="13" height="9" fill={WOOD} />
+              <path d="M28 44 L36.5 37 L45 44 Z" fill={ROOF} opacity="0.9" />
+              <rect x="34.6" y="47" width="4" height="6" fill={LEAF_DARK} />
+              <g stroke={WOOD} strokeWidth="1.2">
+                <path d="M33 53 v20M38 53 v20M33 58 h5M33 64 h5M33 70 h5" />
+              </g>
+            </g>
+          )}
+
+          {/* Нижня половина — щільно забудоване місто Імперії. Межа рівно по
+              середині й наскрізна через усі чотири клітинки. */}
+          <rect x="0" y="75" width="50" height="75" fill="#cbb894" />
+          <rect x="0" y="73" width="50" height="3" fill={WOOD} opacity="0.55" />
+          <g>
+            <rect x="1" y="90" width="14" height="16" fill={WALL} />
+            <path d="M-1 90 L8 82 L17 90 Z" fill={ROOF} />
+            <rect x="18" y="93" width="13" height="13" fill={WALL} />
+            <path d="M16 93 L24.5 86 L33 93 Z" fill={ROOF} />
+            <rect x="34" y="88" width="15" height="18" fill={WALL} />
+            <path d="M32 88 L41.5 80 L51 88 Z" fill={ROOF} />
+          </g>
+          <g>
+            <rect x="-2" y="114" width="16" height="20" fill={WALL} />
+            <path d="M-4 114 L6 106 L16 114 Z" fill={ROOF} />
+            <rect x="17" y="118" width="14" height="16" fill={WALL} />
+            <path d="M15 118 L24 111 L33 118 Z" fill={ROOF} />
+            <rect x="35" y="116" width="16" height="18" fill={WALL} />
+            <path d="M33 116 L43 108 L53 116 Z" fill={ROOF} />
+          </g>
+          {n === 7 && (
+            <g>
+              {/* Замок: вежа з зубцями вища за все місто навколо. */}
+              <rect x="19" y="86" width="14" height="48" fill={STONE} />
+              <path d="M18 86h3v-4h3v4h3v-4h3v4h3v-5H18z" fill={STONE} />
+              <rect x="24" y="94" width="4" height="6" fill={DEAD_GROUND} opacity="0.55" />
+              <rect x="23" y="120" width="6" height="14" fill={WOOD} />
+            </g>
+          )}
+          <rect x="0" y="132" width="50" height="18" fill={STONE} opacity="0.4" />
+          <g stroke={WALL} strokeWidth="0.8" opacity="0.45">
+            <path d="M0 138 H50M0 144 H50M8 132 V150M20 132 V150M32 132 V150M44 132 V150" />
+          </g>
+        </>
+      )}
+
+      {land === "dead" && (
+        <>
+          <rect x="0" y="0" width="50" height="150" fill={DEAD_SKY} />
+          <rect x="0" y="86" width="50" height="64" fill={DEAD_GROUND} />
+          {/* Туман: три смуги, що не доходять до країв. */}
+          <g fill="#ffffff" opacity="0.12">
+            <rect x="0" y="82" width="50" height="6" />
+            <rect x="0" y="102" width="50" height="4" />
+          </g>
+          {(n === 9 || n === 11) && (
+            <g>
+              {/* Надгробок із хрестом. */}
+              <path d="M10 108 V90 a7 7 0 0 1 14 0 v18 z" fill={DEAD_STONE} opacity="0.85" />
+              <g stroke={DEAD_GROUND} strokeWidth="1.6">
+                <path d="M17 94 v10M13 98 h8" />
+              </g>
+              <path d="M30 108 V96 a5 5 0 0 1 10 0 v12 z" fill={DEAD_STONE} opacity="0.6" />
+            </g>
+          )}
+          {(n === 10 || n === 12) && (
+            <g>
+              {/* Сухе дерево й похилена плита. */}
+              <g stroke={DEAD_STONE} strokeWidth="2" fill="none" opacity="0.7" strokeLinecap="round">
+                <path d="M14 108 V74M14 88 L6 78M14 82 L23 70M14 94 L7 88" />
+              </g>
+              <path d="M30 108 V92 h11 v16 z" fill={DEAD_STONE} opacity="0.55" />
+            </g>
+          )}
+          <g fill="#ffffff" opacity="0.08">
+            <rect x="0" y="126" width="50" height="5" />
+          </g>
+        </>
+      )}
+    </svg>
+  );
+}
+
+/**
+ * Символи землі — у потоці, по центру клітинки.
+ *
+ * Раніше єдиний значок висів в абсолютному куті клітинки й читався як
+ * випадкова позначка. У середніх клітинках їх два: там і ліс Племен, і місто
+ * Імперії, тобто одна клітинка належить обом.
+ */
+const GLYPHS: Record<string, React.ReactNode> = {
+  water: <path d="M1 9.6q3-3 6 0t6 0v3.2q-3 3-6 0t-6 0z" fill="currentColor" />,
+  tribes: <path d="M1 13 L6 4 L9.4 9 L11.6 5.6 L15 13 Z" fill="currentColor" />,
+  empire: (
+    <g fill="currentColor">
+      <path d="M3.6 4h1.5v1.3h1.2V4h1.4v1.3h1.2V4h1.5v2.2H3.6z" />
+      <path d="M4.4 6h7.2v7H4.4z" />
+    </g>
+  ),
+  dead: (
+    <g fill="currentColor">
+      <path d="M8 2.4c2.6 0 4.5 2 4.5 4.5 0 1.5-.7 2.6-1.5 3.3l-.2 1.5H5.2L5 10.2C4.2 9.5 3.5 8.4 3.5 6.9 3.5 4.4 5.4 2.4 8 2.4z" />
+      <path d="M6.3 12.5h1v1.4h-1zm2.2 0h1v1.4h-1z" />
+    </g>
+  ),
+};
+
+const LAND_GLYPHS: Record<Land, readonly string[]> = {
+  water: ["water"],
+  mid: ["tribes", "empire"],
+  dead: ["dead"],
+};
+
+function LandGlyphs({ land }: { land: Land }) {
+  return (
+    <span className="power-cell-glyphs">
+      {LAND_GLYPHS[land].map((k) => (
+        <svg key={k} className="power-cell-glyph" viewBox="0 0 16 16" aria-hidden>
+          {GLYPHS[k]}
+        </svg>
+      ))}
+    </span>
+  );
+}
 
 /**
  * Розміри бічної колони.
@@ -83,13 +325,21 @@ function ZoneArt({ kind }: { kind: "harbor" | "wilderness" | "graveyard" }) {
       aria-hidden
     >
       {kind === "harbor" && (
-        <g fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
-          <path d="M-4 30 Q8 25 20 30 T44 30 T68 30 T92 30 T116 30 T140 30" />
-          <path d="M-4 36 Q8 31 20 36 T44 36 T68 36 T92 36 T116 36 T140 36" />
-          <path d="M60 6 L60 27" />
-          <path d="M60 9 L74 15 L60 20" fill="currentColor" strokeWidth="1" />
-          <path d="M46 27 L74 27" />
-        </g>
+        <>
+          {/* Хмарки над щоглою. Заливкою, а не обрисом: на 40px заввишки
+              обведене коло перетворюється на кільце, а не на хмару. */}
+          <g fill="currentColor" opacity="0.5">
+            <path d="M12 12q2-5 6-3 1-4 6-3t5 6H12z" />
+            <path d="M88 8q2-4 5-2.5 1-3.5 5-2.5t4 5H88z" />
+          </g>
+          <g fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+            <path d="M-4 30 Q8 25 20 30 T44 30 T68 30 T92 30 T116 30 T140 30" />
+            <path d="M-4 36 Q8 31 20 36 T44 36 T68 36 T92 36 T116 36 T140 36" />
+            <path d="M60 6 L60 27" />
+            <path d="M60 9 L74 15 L60 20" fill="currentColor" strokeWidth="1" />
+            <path d="M46 27 L74 27" />
+          </g>
+        </>
       )}
       {kind === "wilderness" && (
         <g fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
@@ -298,12 +548,6 @@ export function CentralBoard({
         </p>
         <div className="power-track w-full">
           <div className="power-track-inner flex">
-            {/* Кайма «менше впливу»: на друкованій дошці трек починається саме
-                шестикутником з мінусом, і без нього ліва межа читається як
-                випадковий обрив. */}
-            <div className="power-cap power-cap--minus" title="Менше впливу">
-              <span className="power-cap-sign" aria-hidden>−</span>
-            </div>
             {TRACK_CELLS.map((n) => {
               const isWarCell = n >= 9;
               const pulse = isWarCell && bothInWarArea;
@@ -326,9 +570,8 @@ export function CentralBoard({
                       />
                     </svg>
                   )}
-                  {/* Череп, а не схрещені мечі: ці чотири клітинки належать
-                      Невмерлим, і саме їхня умова перемоги тут спрацьовує. */}
-                  {isWarCell && <span className="power-cell-war-glyph" aria-hidden>☠</span>}
+                  <CellScenery n={n} />
+                  <LandGlyphs land={land} />
                   <div className="power-cell-slot">
                     <span className="power-cell-socket" aria-hidden />
                     {trail.red === n && <MarkerToken variant="red" size={TOKEN_PX} trail title="Червоний (Імперія)" />}
@@ -352,9 +595,6 @@ export function CentralBoard({
                 </div>
               );
             })}
-            <div className="power-cap power-cap--plus" title="Більше впливу">
-              <span className="power-cap-sign" aria-hidden>+</span>
-            </div>
           </div>
         </div>
       </div>
