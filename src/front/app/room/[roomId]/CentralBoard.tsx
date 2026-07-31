@@ -46,8 +46,8 @@ const LAND_CLASS: Record<Land, string> = {
   dead: "power-cell--dead",
 };
 
-/** Габарит жетона на треку: клітинка тепер 50px, і жетон росте разом із нею. */
-const TOKEN_PX = 34;
+/** Габарит жетона на треку: клітинка тепер 75px, і жетон росте разом із нею. */
+const TOKEN_PX = 50;
 
 /**
  * Краєвид клітинки.
@@ -57,8 +57,8 @@ const TOKEN_PX = 34;
  * середину клітинки. Тепер кожна сцена живе у власній клітинці, а сусідні
  * стикуються по краях (хвилі, лінія землі, дахи йдуть наскрізь).
  *
- * `preserveAspectRatio="none"` безпечний: клітинка має фіксовані 50×150, тобто
- * рівно пропорції viewBox.
+ * `preserveAspectRatio="none"` безпечний: клітинка має фіксовані 75×225, тобто
+ * рівно пропорції viewBox (1:3).
  *
  * Жодних `id` і градієнтів: на треку дванадцять таких сцен, ідентифікатори
  * зіткнулися б — те саме правило, що й для деталей арту карт.
@@ -249,48 +249,6 @@ function CellScenery({ n }: { n: number }) {
         </>
       )}
     </svg>
-  );
-}
-
-/**
- * Символи землі — у потоці, по центру клітинки.
- *
- * Раніше єдиний значок висів в абсолютному куті клітинки й читався як
- * випадкова позначка. У середніх клітинках їх два: там і ліс Племен, і місто
- * Імперії, тобто одна клітинка належить обом.
- */
-const GLYPHS: Record<string, React.ReactNode> = {
-  water: <path d="M1 9.6q3-3 6 0t6 0v3.2q-3 3-6 0t-6 0z" fill="currentColor" />,
-  tribes: <path d="M1 13 L6 4 L9.4 9 L11.6 5.6 L15 13 Z" fill="currentColor" />,
-  empire: (
-    <g fill="currentColor">
-      <path d="M3.6 4h1.5v1.3h1.2V4h1.4v1.3h1.2V4h1.5v2.2H3.6z" />
-      <path d="M4.4 6h7.2v7H4.4z" />
-    </g>
-  ),
-  dead: (
-    <g fill="currentColor">
-      <path d="M8 2.4c2.6 0 4.5 2 4.5 4.5 0 1.5-.7 2.6-1.5 3.3l-.2 1.5H5.2L5 10.2C4.2 9.5 3.5 8.4 3.5 6.9 3.5 4.4 5.4 2.4 8 2.4z" />
-      <path d="M6.3 12.5h1v1.4h-1zm2.2 0h1v1.4h-1z" />
-    </g>
-  ),
-};
-
-const LAND_GLYPHS: Record<Land, readonly string[]> = {
-  water: ["water"],
-  mid: ["tribes", "empire"],
-  dead: ["dead"],
-};
-
-function LandGlyphs({ land }: { land: Land }) {
-  return (
-    <span className="power-cell-glyphs">
-      {LAND_GLYPHS[land].map((k) => (
-        <svg key={k} className="power-cell-glyph" viewBox="0 0 16 16" aria-hidden>
-          {GLYPHS[k]}
-        </svg>
-      ))}
-    </span>
   );
 }
 
@@ -543,9 +501,8 @@ export function CentralBoard({
     <div className="flex flex-row w-full min-h-0 gap-0 self-start">
       {/* Center: Field + Power Track — cream board, War Area pulse when both markers there */}
       <div className="flex-1 min-w-0 flex flex-col justify-center items-center px-4 py-3" style={{ minHeight: 120 }}>
-        <p className="board-label zone-header text-sm font-semibold uppercase tracking-wider mb-2 text-center">
-          Поле · Трек сили
-        </p>
+        {/* Підпису над треком немає: дошка з номерами й жетонами не потребує
+            назви, а рядок заголовка з'їдав висоту в найтіснішому місці столу. */}
         <div className="power-track w-full">
           <div className="power-track-inner flex">
             {TRACK_CELLS.map((n) => {
@@ -571,7 +528,6 @@ export function CentralBoard({
                     </svg>
                   )}
                   <CellScenery n={n} />
-                  <LandGlyphs land={land} />
                   <div className="power-cell-slot">
                     <span className="power-cell-socket" aria-hidden />
                     {trail.red === n && <MarkerToken variant="red" size={TOKEN_PX} trail title="Червоний (Імперія)" />}
@@ -591,7 +547,10 @@ export function CentralBoard({
                   </div>
                   {/* Номер унизу, як на дошці: жетон стоїть у верхній частині
                       клітинки, і номер під ним не доводиться шукати за фішкою. */}
-                  <span className="power-cell-num board-label">{n}</span>
+                  {/* Без `board-label`: декоративний шрифт дошки має нерівні
+                      бічні відступи в цифр, і одинична цифра з'їжджала з центру
+                      кола. Шрифт і колір номера задає `.power-cell-num`. */}
+                  <span className="power-cell-num">{n}</span>
                 </div>
               );
             })}
@@ -660,23 +619,20 @@ export function CentralBoard({
           <div className={`${ZONE_PANEL} zone-harbor-panel flex flex-col items-center flex-1 min-w-0`}>
             <ZoneArt kind="harbor" />
             <p className={`${ZONE_HEADER} zone-harbor-text`}>Гавань</p>
+            {/* Окремої кнопки «Брати» немає: колода й була кнопкою, тож поруч
+                стояли два елементи з однією дією. Лишилася сама стопка —
+                клацання по ній і бере карту. Обвід на наведенні показує, що
+                вона натискається, замість підпису. */}
             <button
               type="button"
               disabled={!canDraw}
               onClick={() => canDraw && onDrawFromHarbor()}
-              className="flex flex-col items-center disabled:cursor-not-allowed disabled:opacity-60 hover:opacity-100 transition-opacity"
+              title={canDraw ? "Взяти карту з гавані" : "Гавань"}
+              className="flex flex-col items-center rounded-lg transition-all disabled:cursor-not-allowed disabled:opacity-60 enabled:hover:ring-2 enabled:hover:ring-[var(--accent)]"
             >
               <CardStack borderColor="var(--zone-harbor-border)" />
             </button>
             <span className="mt-0.5 text-xs font-bold zone-harbor-text">{state.harbor_count}</span>
-            <button
-              type="button"
-              disabled={!canDraw}
-              onClick={() => canDraw && onDrawFromHarbor()}
-              className="btn-soft mt-0.5 py-1 px-2 text-[10px] disabled:opacity-60 disabled:cursor-not-allowed"
-            >
-              Брати
-            </button>
           </div>
 
           {/* Wilderness */}

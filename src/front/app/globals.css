@@ -556,9 +556,9 @@
   .power-track-inner {
     display: flex;
     transform: rotateX(6deg);
-    border-radius: 16px;
+    border-radius: 22px;
     overflow: hidden;
-    border: 3px solid rgba(30, 74, 110, 0.5);
+    border: 4px solid rgba(30, 74, 110, 0.5);
     background: var(--board-cream);
     box-shadow:
       0 18px 40px rgba(0, 0, 0, 0.26),
@@ -592,14 +592,14 @@
   .power-cell {
     position: relative;
     flex: 0 0 auto;
-    width: 50px;
-    min-height: 150px;
+    width: 75px;
+    min-height: 225px;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: space-between;
-    gap: 6px;
-    padding: 10px 3px 9px;
+    gap: 9px;
+    padding: 15px 5px 14px;
     /* Без `overflow: hidden`: хвиляста межа зони війни навмисно виступає за
        лівий край клітинки, і обрізання з'їдало її половину. Краєвид усередині
        клітинки й так inset:0, а круглі кути тримає сам трек. */
@@ -614,9 +614,9 @@
   }
   .power-cell-edge {
     position: absolute;
-    left: -4px;
+    left: -6px;
     top: 0;
-    width: 8px;
+    width: 12px;
     height: 100%;
     color: rgba(255, 255, 255, 0.85);
     pointer-events: none;
@@ -645,69 +645,66 @@
       inset 0 0 18px rgba(201, 162, 39, 0.22);
   }
   /**
-   * Символи землі. У потоці й по центру, а не приліплені до кута: у кутку
-   * значок читався як випадкова позначка на клітинці, а не як «тут ця фракція».
+   * Номер клітинки — головна позначка на треку, тому плашка велика й непрозора.
    *
-   * Білі з тінню: під ними лежить намальований краєвид, і будь-який суцільний
-   * колір на частині клітинок зливався б із ним.
+   * Цифра центрується не сама собою: декоративний шрифт `--font-board-label`
+   * має різні бічні відступи в цифр і трек-інтервал у кінці знака, тож єдина
+   * цифра у flex-центрі з'їжджала вбік. Тут узятий шрифт інтерфейсу з
+   * табличними цифрами й нульовим трек-інтервалом — усі дванадцять номерів
+   * стають однаково по центру кола.
    */
-  .power-cell-glyphs {
-    position: relative;
-    z-index: 1;
-    display: flex;
-    gap: 3px;
-    align-items: center;
-    justify-content: center;
-  }
-  .power-cell-glyph {
-    width: 14px;
-    height: 14px;
-    display: block;
-    color: rgba(255, 255, 255, 0.92);
-    filter: drop-shadow(0 1px 1.5px rgba(0, 0, 0, 0.55));
-  }
   .power-cell-num {
     /* z-index обов'язковий: без нього нерозташований елемент малюється під
        краєвидом, який є позиційованим SVG. */
     position: relative;
     z-index: 1;
-    width: 26px;
-    height: 26px;
+    width: 40px;
+    height: 40px;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 15px;
-    font-weight: 700;
+    font-family: var(--font-body), system-ui, sans-serif;
+    font-size: 22px;
+    font-weight: 800;
     line-height: 1;
+    letter-spacing: 0;
+    font-variant-numeric: tabular-nums;
+    text-indent: 0;
     /* Темна фарба, а не золото з `.board-label`: плашка номера завжди світла в
        обох темах, і золото по білому давало контраст близько 1.9:1. */
-    color: rgba(20, 45, 68, 0.92);
-    background: rgba(255, 255, 255, 0.75);
-    border: 1px solid rgba(30, 74, 110, 0.28);
-    box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.6);
+    color: #16324f;
+    background: #ffffff;
+    border: 2px solid rgba(30, 74, 110, 0.55);
+    /* Зовнішня темна обвідка: плашка лежить на намальованому краєвиді, і на
+       світлих ділянках (пісок, стіни міста) самої білої заливки для межі
+       замало. */
+    box-shadow:
+      0 0 0 2px rgba(12, 28, 44, 0.35),
+      0 2px 4px rgba(0, 0, 0, 0.35),
+      inset 0 -2px 0 rgba(30, 74, 110, 0.12);
   }
   .power-cell--dead .power-cell-num {
-    border-color: rgba(184, 74, 74, 0.5);
+    border-color: rgba(184, 74, 74, 0.65);
   }
   .power-cell-slot {
     position: relative;
     z-index: 1;
     width: 100%;
-    min-height: 40px;
+    min-height: 58px;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 4px;
+    gap: 6px;
   }
   /** Гніздо під жетон: порожня клітинка теж має виглядати як місце на дошці. */
   .power-cell-socket {
     position: absolute;
-    top: 1px;
+    top: 2px;
     left: 50%;
     transform: translateX(-50%);
-    width: 38px;
-    height: 38px;
+    width: 56px;
+    height: 56px;
     border-radius: 50%;
     background: rgba(30, 74, 110, 0.06);
     box-shadow: inset 0 3px 4px rgba(30, 74, 110, 0.22);
