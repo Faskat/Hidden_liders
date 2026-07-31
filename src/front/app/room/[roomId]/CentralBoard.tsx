@@ -11,19 +11,70 @@ import { hoverAnchor, type HoverHandler } from "./constants";
 /** Клітинки треку сили: 1-8 звичайні, 9-12 — зона війни. */
 const TRACK_CELLS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 
+/** Габарит жетона на треку: клітинка тепер 50px, і жетон росте разом із нею. */
+const TOKEN_PX = 34;
+
 /**
- * Габарит жетона на треку.
+ * Розміри бічної колони.
  *
- * Впирається в ширину клітинки, а не у смак: центр дошки віддає треку близько
- * 330px на дванадцять клітинок, тож на жетон лишається 22px разом із відступами.
+ * Таверна — найбільша: саме там гравець обирає карту, і читати її треба, не
+ * наводячи мишу. Колоди гавані, пустоші й цвинтаря — на щабель менші: у них
+ * важлива не назва, а те, що це стопка й скільки в ній карт.
  */
-const TOKEN_PX = 22;
+const TAVERN_SLOT = CARD_SIZES.large;
+const SLOT = CARD_SIZES.small;
 
-/** Колоди, порожні слоти таверни й цвинтар — усі розміром із карту цвинтаря. */
-const SLOT = CARD_SIZES.graveyard;
+const ZONE_PANEL = "zone-frame rounded-xl p-2";
+const ZONE_HEADER = "text-xs font-semibold uppercase tracking-wider board-label zone-header mb-1 relative";
 
-const ZONE_PANEL = "rounded-xl glass-panel p-2";
-const ZONE_HEADER = "text-xs font-semibold uppercase tracking-wider board-label zone-header mb-1";
+/**
+ * Декор зони — не прямокутник із прозорістю, а натяк на місце.
+ *
+ * Гавань: хвилі й щогла. Пустош: сухі дерева й каміння. Цвинтар: надгробки в
+ * тумані. Малюється в підвалі панелі під вмістом, тому картам не заважає.
+ *
+ * `preserveAspectRatio="none"` навмисно: смуга розтягується на всю ширину
+ * панелі, а форми тут настільки прості, що спотворення не читається.
+ */
+function ZoneArt({ kind }: { kind: "harbor" | "wilderness" | "graveyard" }) {
+  return (
+    <svg
+      className="zone-frame-art"
+      viewBox="0 0 120 40"
+      preserveAspectRatio="none"
+      aria-hidden
+    >
+      {kind === "harbor" && (
+        <g fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+          <path d="M-4 30 Q8 25 20 30 T44 30 T68 30 T92 30 T116 30 T140 30" />
+          <path d="M-4 36 Q8 31 20 36 T44 36 T68 36 T92 36 T116 36 T140 36" />
+          <path d="M60 6 L60 27" />
+          <path d="M60 9 L74 15 L60 20" fill="currentColor" strokeWidth="1" />
+          <path d="M46 27 L74 27" />
+        </g>
+      )}
+      {kind === "wilderness" && (
+        <g fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+          <path d="M-4 34 H140" />
+          <path d="M24 34 L24 14 M24 22 L16 15 M24 20 L32 12 M24 27 L18 23" />
+          <path d="M92 34 L92 18 M92 24 L100 17 M92 22 L85 16" />
+          <path d="M52 34 q6 -7 12 0 z" fill="currentColor" stroke="none" opacity="0.7" />
+          <path d="M68 34 q4 -4 8 0 z" fill="currentColor" stroke="none" opacity="0.5" />
+        </g>
+      )}
+      {kind === "graveyard" && (
+        <g stroke="currentColor" strokeWidth="1.6" fill="none" strokeLinecap="round">
+          <path d="M-4 34 H140" />
+          <path d="M18 34 V20 a6 6 0 0 1 12 0 v14 z" />
+          <path d="M24 24 v7 M21 27 h6" />
+          <path d="M56 34 V16 a7 7 0 0 1 14 0 v18 z" />
+          <path d="M63 21 v8 M59.5 24.5 h7" />
+          <path d="M94 34 V22 a5 5 0 0 1 10 0 v12 z" />
+        </g>
+      )}
+    </svg>
+  );
+}
 
 /**
  * Фішка маркера — карбований жетон, а не квадратик із символом.
@@ -73,7 +124,14 @@ export function MarkerToken({
           stroke="#ffffff" strokeWidth="1.1" opacity="0.38" strokeDasharray="2 2.7"
         />
         {isRed ? (
-          <path d="M16 8.4 L21.4 16 L16 23.6 L10.6 16 Z" fill="#ffffff" opacity="0.9" />
+          // Вежа з зубцями: Імперія. Ромб нічого не позначав — тепер жетон на
+          // треку й бейдж фракції на картах показують ту саму річ.
+          <g fill="#ffffff" opacity="0.92">
+            <path d="M10.4 8.6h2.2v1.8h1.3V8.6h2.2v1.8h1.3V8.6h2.2v3H10.4z" />
+            <path d="M11.3 12h9.4v11.4h-9.4z" />
+            <path d="M14.8 17.4h2.4v6h-2.4z" fill={rim} opacity="0.75" />
+            <path d="M12.6 13.6h1.7v2.2h-1.7zm5.1 0h1.7v2.2h-1.7z" fill={rim} opacity="0.75" />
+          </g>
         ) : (
           <path d="M16 8.2 L23 22.4 L9 22.4 Z" fill="#ffffff" opacity="0.9" />
         )}
@@ -102,7 +160,7 @@ function CardStack({ borderColor }: { borderColor: string }) {
         className="relative rounded-lg border-2 overflow-hidden shadow-md w-full h-full"
         style={{ borderColor }}
       >
-        <CardBack size="graveyard" />
+        <CardBack size="small" />
       </div>
     </div>
   );
@@ -193,8 +251,14 @@ export function CentralBoard({
         <p className="board-label zone-header text-sm font-semibold uppercase tracking-wider mb-2 text-center">
           Поле · Трек сили
         </p>
-        <div className="power-track w-full max-w-2xl">
-          <div className="power-track-inner w-full flex">
+        <div className="power-track w-full">
+          <div className="power-track-inner flex">
+            {/* Кайма «менше впливу»: на друкованій дошці трек починається саме
+                шестикутником з мінусом, і без нього ліва межа читається як
+                випадковий обрив. */}
+            <div className="power-cap power-cap--minus" title="Менше впливу">
+              <span className="power-cap-sign" aria-hidden>−</span>
+            </div>
             {TRACK_CELLS.map((n) => {
               const isWarCell = n >= 9;
               const pulse = isWarCell && bothInWarArea;
@@ -204,11 +268,18 @@ export function CentralBoard({
                   key={n}
                   className={`power-cell ${isWarCell ? "power-cell--war" : ""} ${occupied ? "power-cell--active" : ""} ${pulse ? "war-area-pulse" : ""}`}
                 >
-                  {/* Позначка зони війни живе у самій клітинці, а не підписом
-                      збоку: підпис під треком губиться, а нахил дошки ще й
-                      відсуває його від клітинок, на які він показує. */}
+                  {/* Зона війни відділяється хвилястою межею, а не прямою
+                      лінією, — так само як на дошці. Форма несе те саме, що й
+                      колір, і лишається помітною, коли колір гасне в темній темі. */}
+                  {isWarCell && (
+                    <svg className="power-cell-edge" viewBox="0 0 8 100" preserveAspectRatio="none" aria-hidden>
+                      <path
+                        d="M4 0 Q0 12 4 25 Q8 38 4 50 Q0 62 4 75 Q8 88 4 100"
+                        fill="none" stroke="currentColor" strokeWidth="2"
+                      />
+                    </svg>
+                  )}
                   {isWarCell && <span className="power-cell-war-glyph" aria-hidden>⚔</span>}
-                  <span className="power-cell-num board-label">{n}</span>
                   <div className="power-cell-slot">
                     <span className="power-cell-socket" aria-hidden />
                     {trail.red === n && <MarkerToken variant="red" size={TOKEN_PX} trail title="Червоний (Імперія)" />}
@@ -226,9 +297,15 @@ export function CentralBoard({
                       <MarkerToken variant="green" size={TOKEN_PX} className="marker-3d" title="Зелений (Племена)" />
                     )}
                   </div>
+                  {/* Номер унизу, як на дошці: жетон стоїть у верхній частині
+                      клітинки, і номер під ним не доводиться шукати за фішкою. */}
+                  <span className="power-cell-num board-label">{n}</span>
                 </div>
               );
             })}
+            <div className="power-cap power-cap--plus" title="Більше впливу">
+              <span className="power-cap-sign" aria-hidden>+</span>
+            </div>
           </div>
         </div>
       </div>
@@ -236,7 +313,7 @@ export function CentralBoard({
       {/* Sidebar: Tavern row + Harbor / Wilderness / Graveyard row — harmonious grid */}
       <div className="flex flex-col gap-3 shrink-0 pl-3 w-auto min-w-[200px] border-l border-[var(--border)]/50">
         {/* Row 1: Tavern — three slots in a row, breathing when drawable */}
-        <div className={ZONE_PANEL}>
+        <div className={`${ZONE_PANEL} zone-tavern-panel`}>
           <p className={ZONE_HEADER}>Таверна</p>
           <div className={`flex flex-row gap-2 justify-center flex-wrap ${canDraw ? "tavern-breathe" : ""}`}>
             {state.tavern.map((slot, i) =>
@@ -264,7 +341,7 @@ export function CentralBoard({
                       variant="open"
                       name={slot.name}
                       faction={slot.faction}
-                      size="tiny"
+                      size="large"
                       catalog={catalog}
                     />
                   </button>
@@ -275,8 +352,11 @@ export function CentralBoard({
                   type="button"
                   disabled={!canDraw}
                   onClick={() => canDraw && onDrawFromTavern(i)}
+                  // Порожній слот того ж розміру, що й зайнятий: доти він був
+                  // розміром із карту цвинтаря, і ряд таверни стрибав по висоті,
+                  // щойно карту забирали.
                   className="rounded-lg border-2 border-dashed border-[var(--border)] flex flex-col items-center justify-center gap-0.5 disabled:opacity-50 disabled:cursor-not-allowed hover:border-[var(--accent)]/50 shrink-0 bg-[var(--bg-panel)]/40"
-                  style={{ width: SLOT.w, height: SLOT.h }}
+                  style={{ width: TAVERN_SLOT.w, height: TAVERN_SLOT.h }}
                 >
                   <span className="text-[10px] text-[var(--text-muted)]">—</span>
                 </button>
@@ -289,6 +369,7 @@ export function CentralBoard({
         <div className="flex flex-row gap-3 items-stretch justify-center flex-wrap">
           {/* Harbor */}
           <div className={`${ZONE_PANEL} zone-harbor-panel flex flex-col items-center flex-1 min-w-0`}>
+            <ZoneArt kind="harbor" />
             <p className={`${ZONE_HEADER} zone-harbor-text`}>Гавань</p>
             <button
               type="button"
@@ -311,12 +392,14 @@ export function CentralBoard({
 
           {/* Wilderness */}
           <div className={`${ZONE_PANEL} zone-wilderness-panel flex flex-col items-center flex-1 min-w-0`}>
+            <ZoneArt kind="wilderness" />
             <p className={`${ZONE_HEADER} zone-wilderness-text`}>Пустош</p>
             <CardStackPlaceholder count={state.wilderness_count} label="Пустош" accent="wilderness" />
           </div>
 
           {/* Graveyard — top card visible or placeholder "Проклятий імператор", count below */}
           <div className={`${ZONE_PANEL} zone-graveyard-panel flex flex-col items-center flex-1 min-w-0`} translate="no">
+            <ZoneArt kind="graveyard" />
             <p className={`${ZONE_HEADER} zone-graveyard-text`}>Цвинтар</p>
             <div className="flex flex-col items-center">
               <div
@@ -334,7 +417,7 @@ export function CentralBoard({
                     variant="open"
                     name={top.name}
                     faction={top.faction}
-                    size="graveyard"
+                    size="small"
                     theme="graveyard"
                     catalog={catalog}
                   />

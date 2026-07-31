@@ -70,7 +70,9 @@ export default function RoomPage() {
   /** Дзеркало `zoom` для обробника колеса; синхронізується нижче. */
   const zoomRef = useRef(1);
 
-  const ZOOM_MIN = 0.65;
+  // Нижня межа опущена разом зі збільшенням дошки: на шести гравцях стіл тепер
+  // близько 2000px завширшки, і 0.65 не давав побачити його цілком.
+  const ZOOM_MIN = 0.45;
   const ZOOM_MAX = 1.4;
   const ZOOM_STEP = 0.12;
   const rejoinAttemptedRef = useRef(false);
@@ -1072,7 +1074,16 @@ export default function RoomPage() {
             ref={gameTableContentRef}
             className="game-table grid gap-2 min-h-full min-w-full w-max max-w-none h-max max-h-none origin-top-left"
             style={{
-              gridTemplateColumns: "1fr minmax(340px, 2fr) 1fr",
+              // Бічні колонки більше не прив'язані до ширини центральної.
+              // Пропорція «1fr … 2fr … 1fr» означала, що кожні 100px, додані до
+              // дошки, роздували стіл на 200: після збільшення треку він виріс
+              // до 2350px і перестав уміщатися навіть на мінімальному зумі.
+              //
+              // Нижня межа в 360px — не окомір: панелі ліворуч і праворуч
+              // повернуті на 90°, тому по горизонталі вони займають власну
+              // ВИСОТУ (близько 325px), а автопідбір ширини колонки цього знати
+              // не може й обрізав би їх по краях.
+              gridTemplateColumns: "minmax(360px, 1fr) minmax(340px, auto) minmax(360px, 1fr)",
               gridTemplateRows: "auto minmax(520px, 1fr) auto",
               transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
               transition: isPanning ? "none" : "transform 0.15s ease-out",

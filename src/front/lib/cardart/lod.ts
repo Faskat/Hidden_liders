@@ -16,9 +16,12 @@ const FIGURE: readonly Slot[] = [
 export type LodSpec = { lod: Lod; slots: readonly Slot[] };
 
 export const ART_LOD: Record<CardSizeToken, LodSpec> = {
-  // На 60×84 виживає лише силует: голова, убір, торс. ~6 вузлів DOM.
-  graveyard:  { lod: 0, slots: ["body", "head", "headwear"] },
-  leaderMini: { lod: 0, slots: ["body", "head", "headwear"] },
+  // На 60×84 виживає лише силует. Ноги й плащ входять у нього обов'язково:
+  // без ніг фігура обривається по пояс і висить у повітрі — найпомітніше це
+  // було на Проклятому імператорі, який лежить на цвинтарі відкритим і в кого
+  // під плащем із рецепта лишався сам торс.
+  graveyard:  { lod: 0, slots: ["cape", "legs", "body", "head", "headwear"] },
+  leaderMini: { lod: 0, slots: ["cape", "legs", "body", "head", "headwear"] },
   // 80×112 — найчастіший розмір на столі (таверна, чужі партії). Додаємо ноги,
   // зброю й обличчя: саме силует зброї відрізняє мага від лицаря, а без очей і
   // рота герой читався як манекен — на цьому розмірі обличчя вже помітне.

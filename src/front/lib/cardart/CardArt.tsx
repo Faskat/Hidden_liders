@@ -204,8 +204,14 @@ export const CardArt = memo(function CardArt({
 
   // Масштаб фігури — навколо точки землі, щоб ноги лишались на місці.
   // Масштаб голови — навколо шиї, щоб голова не від'їхала від плечей.
+  //
+  // Нахил і зсув по висоті вимикаються на LOD 0. На 60×84 фігура заввишки
+  // близько 30px, і ті самі 4° читаються вже не як жива поза, а як перекошена
+  // картинка — надто мало пікселів, щоб побачити в цьому намір.
+  const lean = lod >= 1 ? v.lean : 0;
+  const lift = lod >= 1 ? v.lift : 0;
   const sx = v.mirror ? -v.build : v.build;
-  const figure = `translate(0 ${v.lift}) translate(50 138) rotate(${v.lean.toFixed(2)}) scale(${sx.toFixed(3)} ${v.build.toFixed(3)}) translate(-50 -138)`;
+  const figure = `translate(0 ${lift}) translate(50 138) rotate(${lean.toFixed(2)}) scale(${sx.toFixed(3)} ${v.build.toFixed(3)}) translate(-50 -138)`;
   const headTf = `translate(50 50) scale(${v.headScale.toFixed(3)}) translate(-50 -50)`;
 
   // Фон заливає карту цілком, тому обрізати його можна як завгодно — аби не

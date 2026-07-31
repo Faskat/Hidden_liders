@@ -99,7 +99,15 @@ export function GameCard({
   const abilityLabel = getAbilityLabel(catalogEntry?.ability, catalogEntry?.markers);
   const markersShort = formatMarkersShort(catalogEntry?.markers);
 
+  /**
+   * Проклятий імператор рахується за всі чотири фракції одразу, тому в нього
+   * і бейдж на чверті, і окремий рядок у підписі: сам колір рамки цього не
+   * скаже, а карта лежить на цвинтарі відкритою всю партію.
+   */
+  const isAllFactions = faction === "Joker";
+
   const tooltipParts = [shownName];
+  if (isAllFactions) tooltipParts.push("Усі фракції: Імперія, Племена, Водний народ, Невмерлі");
   if (abilityLabel) tooltipParts.push(abilityLabel);
   if (markersShort) tooltipParts.push(markersShort);
   if (!abilityLabel && !markersShort && hasMarkersOnly) tooltipParts.push("Маркери за правилами");
@@ -217,6 +225,12 @@ export function GameCard({
             className="font-card-text text-[#16324f] shrink-0 space-y-0.5 overflow-hidden rounded-[3px]"
             style={{ fontSize: spec.footerFontPx, background: PLATE, paddingInline: 2, paddingBlock: 1 }}
           >
+            {isAllFactions && (
+              <div className="flex items-center gap-1 font-semibold">
+                <FactionBadge faction="Joker" size={iconPx + 1} />
+                <span>Усі фракції</span>
+              </div>
+            )}
             {abilityLabel && spec.showAbility && (
               <div
                 className={`font-medium break-words leading-snug ${

@@ -29,11 +29,14 @@ const GLYPHS: Record<string, React.ReactNode> = {
       <path d="M12.6 4.2c-3.4-1.4-6.6.4-7.6 2.9-.7 1.8.1 3.4 1.6 3.9 1.2.4 2.3-.2 2.6-1.2.2-.7-.1-1.4-.8-1.6.9-.2 1.7.4 1.8 1.3.2 1.5-1.1 2.9-3 2.9-2.4 0-4.1-2-4.1-4.4 0-3 2.6-5.4 5.8-5.4 1.4 0 2.6.4 3.7 1.6z" />
     </g>
   ),
-  // Корона на щиті.
+  // Вежа з зубцями. Була корона, але корону носять і лідери, і джокер — на
+  // столі три різні речі позначалися однією формою. Вежа належить лише Імперії.
   Imperials: (
     <g fill="#ffffff">
-      <path d="M4 5.4l1.6 1.5L8 3.9l2.4 3 1.6-1.5v5.2H4z" />
-      <path d="M4 11.4h8v1.4H4z" />
+      <path d="M3.6 3.4h1.5v1.3h1.2V3.4h1.4v1.3h1.2V3.4h1.5v2.1H3.6z" />
+      <path d="M4.4 5.9h7.2v7.1H4.4z" />
+      <path d="M7 8.2h2v4.8H7z" fill="#000000" opacity="0.4" />
+      <path d="M5.4 7.1h1.1v1.5H5.4zm4.1 0h1.1v1.5H9.5z" fill="#000000" opacity="0.4" />
     </g>
   ),
   // Гори.
@@ -56,6 +59,22 @@ function glyphFor(faction: string): React.ReactNode {
   return GLYPHS[faction] ?? GLYPHS.Imperials;
 }
 
+/**
+ * Проклятий імператор належить одразу всім чотирьом фракціям — так він і
+ * рахується в умовах перемоги. Одного кольору тут не досить: карта на цвинтарі
+ * лежить відкритою весь час, і гравець має бачити, що вона грає за кожного.
+ *
+ * Чверті замальовуються чотирма трикутниками від центру — без масок і `id`,
+ * як і решта бейджів.
+ */
+const ALL_FACTIONS = ["Imperials", "Highlanders", "Waterfolk", "Undead"] as const;
+const QUARTERS = [
+  "M8 8 L8 0.6 A7.4 7.4 0 0 1 15.4 8 Z",
+  "M8 8 L15.4 8 A7.4 7.4 0 0 1 8 15.4 Z",
+  "M8 8 L8 15.4 A7.4 7.4 0 0 1 0.6 8 Z",
+  "M8 8 L0.6 8 A7.4 7.4 0 0 1 8 0.6 Z",
+];
+
 export const FactionBadge = memo(function FactionBadge({
   faction,
   size = 14,
@@ -66,6 +85,7 @@ export const FactionBadge = memo(function FactionBadge({
   /** Задано лише для лідерів: друга фракція, під діагональний поділ. */
   fraction2?: string;
 }) {
+  const isJoker = faction === "Joker";
   const isLeader = faction === "Leader" && Boolean(fraction2);
   const main = isLeader ? "Imperials" : faction;
   const colorA = FACTION_COLORS[isLeader ? "Leader" : faction] ?? "var(--border)";
@@ -77,10 +97,14 @@ export const FactionBadge = memo(function FactionBadge({
       width={size}
       height={size}
       role="img"
-      aria-label={faction}
+      aria-label={isJoker ? "Усі фракції" : faction}
       style={{ display: "block", flexShrink: 0 }}
     >
       <circle cx="8" cy="8" r="7.4" fill={colorA} />
+      {isJoker &&
+        QUARTERS.map((d, i) => (
+          <path key={i} d={d} fill={FACTION_COLORS[ALL_FACTIONS[i]] ?? colorA} />
+        ))}
       {isLeader && (
         // Друга фракція — нижня половина по діагоналі. Без градієнтів і масок:
         // трикутник поверх кола дає той самий результат і не потребує id.
