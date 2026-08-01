@@ -4,6 +4,7 @@ Command handlers: validate command against state, return list of (event_type, pa
 import random
 
 from domain.state import GameState, TurnPhase
+from domain.constants import HAND_SIZE, HAND_SIZE_AFTER_DRAW
 from domain.exceptions import CommandRejected
 from domain.commands import (
     PlayCardCommand,
@@ -31,6 +32,46 @@ def _current_player_id(state: GameState) -> str:
     if not state.players or state.current_player_index >= len(state.players):
         return ""
     return state.players[state.current_player_index].player_id
+
+
+def _phase_after_draw(
+    state: GameState,
+    hand_after: int,
+    *,
+    tavern_slot_taken: int | None = None,
+    harbor_taken: int = 0,
+    harbor_size: int | None = None,
+) -> str:
+    """
+    Крок 2 ходу за правилами: «добирайте з таверни та/або гавані, доки в руці не
+    стане 4 карти». Тобто добір триває, поки рука не наповниться, а не рівно одну
+    карту за хід.
+
+    Доти фаза добору закінчувалась після першої ж карти. У звичайному ході це
+    непомітно (зіграв одну — узяв одну — знову три), але скидання ламалося
+    повністю: скинувши три карти, гравець добирав одну й лишався з рукою в одну
+    карту замість трьох. Заразом зникав і сам вибір із правил — узяти дві карти
+    й лишити кращу.
+
+    Другий вихід із фази — коли добирати нізвідки. Правила такого не описують
+    (карт на всіх вистачає), але зациклити хід на порожньому столі не можна.
+    """
+    if hand_after >= HAND_SIZE_AFTER_DRAW:
+        return TurnPhase.DISCARD.value if hand_after > HAND_SIZE else TurnPhase.REFILL_TAVERN.value
+
+    tavern_left = any(
+        cid for i, cid in enumerate(state.tavern) if cid and i != tavern_slot_taken
+    )
+    # `harbor_size` задають, коли гавань щойно перетасувалася з пустоші: у
+    # `state` вона ще порожня, а пустош — навпаки, ще повна.
+    if harbor_size is None:
+        harbor_size = len(state.harbor)
+        wilderness_left = len(state.wilderness) > 0
+    else:
+        wilderness_left = False
+    if tavern_left or harbor_size - harbor_taken > 0 or wilderness_left:
+        return TurnPhase.DRAW.value
+    return TurnPhase.DISCARD.value if hand_after > HAND_SIZE else TurnPhase.REFILL_TAVERN.value
 
 
 def handle_play_card(state: GameState, cmd: PlayCardCommand) -> list[tuple[str, dict]]:
@@ -127,8 +168,20 @@ def handle_play_card(state: GameState, cmd: PlayCardCommand) -> list[tuple[str, 
                 state, cmd.card_id, ability, cmd.player_id, targets
             )
             events.extend(ability_events)
-        except CommandRejected:
-            raise
+        except CommandRejected as exc:
+            # «Якщо якісь здібності героя виконати не можна, ви все одно можете
+            # покласти героя в загін і просто пропустити ті здібності».
+            #
+            # Доти будь-яка відмова здібності зривала весь хід картою: героя не
+            # можна було зіграти взагалі, і рука могла заклинити на картах, для
+            # яких на столі просто немає цілі. Маркери при цьому теж не рухалися,
+            # хоча вони — окрема, завжди виконувана частина карти.
+            #
+            # Пропускаємо лише відмови зі змістом «ціляти нема в що». Решта —
+            # зіпсований стан або невідомий гравець — це помилка, а не правило,
+            # і має лишатися видимою.
+            if exc.code not in ("INVALID_TARGET", "EMPTY_GRAVEYARD"):
+                raise
 
     # PlayExtra: do not end turn — same player keeps phase PLAY and can play another card
     if not (run_ability and ability and ability.get("action") == "PlayExtra"):
@@ -159,7 +212,10 @@ def handle_discard_cards(state: GameState, cmd: DiscardCardsCommand) -> list[tup
         raise CommandRejected("GAME_ENDED", "Гра закінчилась")
     if _current_player_id(state) != cmd.player_id:
         raise CommandRejected("NOT_YOUR_TURN", "Не ваш хід")
-    if state.current_phase not in (TurnPhase.PLAY, TurnPhase.DISCARD):
+    # DRAW тут теж дозволений: здібності можуть дати карт у руку просто під час
+    # ходу, і гравець заходить у фазу добору вже з чотирма й більше картами.
+    # Добирати йому нема чого, а скидати до трьох — треба.
+    if state.current_phase not in (TurnPhase.PLAY, TurnPhase.DISCARD, TurnPhase.DRAW):
         raise CommandRejected("INVALID_PHASE", "Потрібна фаза гри або скидання карт")
     player = state.get_player(cmd.player_id)
     if not player:
@@ -173,8 +229,8 @@ def handle_discard_cards(state: GameState, cmd: DiscardCardsCommand) -> list[tup
     if state.current_phase == TurnPhase.PLAY:
         events.append(("TurnPhaseChanged", TurnPhaseChanged(phase=TurnPhase.DRAW.value).to_payload()))
     else:
-        # DISCARD phase: after discard must have exactly 3 cards
-        if len(player.hand_card_ids) - len(cmd.card_ids) != 3:
+        # DISCARD / DRAW: крок 3 ходу — скинути рівно до 3 карт.
+        if len(player.hand_card_ids) - len(cmd.card_ids) != HAND_SIZE:
             raise CommandRejected("MUST_DISCARD_TO_THREE", "Потрібно скинути до 3 карт")
         events.append(("TurnPhaseChanged", TurnPhaseChanged(phase=TurnPhase.REFILL_TAVERN.value).to_payload()))
     return events
@@ -201,10 +257,10 @@ def handle_draw_from_tavern(state: GameState, cmd: DrawFromTavernCommand) -> lis
             tavern_slot=cmd.slot_index,
         ).to_payload()),
     ]
-    if player and len(player.hand_card_ids) + 1 >= 4:
-        events.append(("TurnPhaseChanged", TurnPhaseChanged(phase=TurnPhase.DISCARD.value).to_payload()))
-    else:
-        events.append(("TurnPhaseChanged", TurnPhaseChanged(phase=TurnPhase.REFILL_TAVERN.value).to_payload()))
+    hand_after = (len(player.hand_card_ids) if player else 0) + 1
+    events.append(("TurnPhaseChanged", TurnPhaseChanged(
+        phase=_phase_after_draw(state, hand_after, tavern_slot_taken=cmd.slot_index),
+    ).to_payload()))
     return events
 
 
@@ -231,10 +287,18 @@ def handle_draw_from_harbor(state: GameState, cmd: DrawFromHarborCommand) -> lis
     else:
         raise CommandRejected("HARBOR_EMPTY", "Гавань і дикі землі порожні")
     player = state.get_player(cmd.player_id)
-    if player and len(player.hand_card_ids) + 1 >= 4:
-        events.append(("TurnPhaseChanged", TurnPhaseChanged(phase=TurnPhase.DISCARD.value).to_payload()))
-    else:
-        events.append(("TurnPhaseChanged", TurnPhaseChanged(phase=TurnPhase.REFILL_TAVERN.value).to_payload()))
+    hand_after = (len(player.hand_card_ids) if player else 0) + 1
+    # Після перетасовки гавань має стільки карт, скільки було в пустоші, а
+    # пустош порожня. У `state` усе ще навпаки, тому розмір передаємо явно.
+    reshuffled = not harbor
+    events.append(("TurnPhaseChanged", TurnPhaseChanged(
+        phase=_phase_after_draw(
+            state,
+            hand_after,
+            harbor_taken=1,
+            harbor_size=len(state.wilderness) if reshuffled else None,
+        ),
+    ).to_payload()))
     return events
 
 
@@ -248,7 +312,17 @@ def handle_refill_tavern(state: GameState, cmd: RefillTavernCommand) -> list[tup
     events = []
     harbor = list(state.harbor)  # карты снимаються по очердеи
     for slot in range(len(state.tavern)):
-        if state.tavern[slot] is None and harbor:
+        if state.tavern[slot] is not None:
+            continue
+        if not harbor and state.wilderness:
+            # «Якщо в гавані закінчились карти, а вам треба взяти карту,
+            # перетасуйте пустош і зробіть із неї нову гавань» — поповнення
+            # таверни це теж взяття карти. Доти перетасовка була лише в доборі
+            # з гавані, і слоти таверни просто лишалися порожніми до кінця гри.
+            harbor = list(state.wilderness)
+            random.shuffle(harbor)
+            events.append(("DeckShuffled", DeckShuffled(harbor_card_ids=harbor, source="wilderness").to_payload()))
+        if harbor:
             card_id = harbor.pop(0)  # убираеться верхняя карта
             events.append(("TavernRefilled", TavernRefilled(slot_index=slot, card_id=card_id).to_payload()))
     next_idx = (state.current_player_index + 1) % len(state.players)

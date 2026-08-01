@@ -117,11 +117,31 @@ class TestPlayCard:
 class TestDiscardCards:
     def test_rejects_when_not_play_phase(self):
         state = two_player_state()
-        state.current_phase = TurnPhase.DRAW
+        state.current_phase = TurnPhase.REFILL_TAVERN
         cmd = DiscardCardsCommand(room_id="r1", player_id="p1", card_ids=["hero_r"])
         with pytest.raises(CommandRejected) as exc:
             handle_discard_cards(state, cmd)
         assert exc.value.code == "INVALID_PHASE"
+
+    def test_draw_phase_allows_discard_down_to_three(self):
+        """Здібності можуть дати карт у руку, і гравець заходить у добір уже з
+        зайвими. Добирати нема чого — скидати до трьох треба."""
+        state = two_player_state()
+        state.current_phase = TurnPhase.DRAW
+        state.players[0].hand_card_ids = ["hero_r", "hero_g", "hero_b", "hero_k"]
+        cmd = DiscardCardsCommand(room_id="r1", player_id="p1", card_ids=["hero_r"])
+        events = handle_discard_cards(state, cmd)
+        assert [e[0] for e in events] == ["CardsDiscarded", "TurnPhaseChanged"]
+        assert events[1][1]["phase"] == TurnPhase.REFILL_TAVERN.value
+
+    def test_draw_phase_rejects_discard_not_down_to_three(self):
+        state = two_player_state()
+        state.current_phase = TurnPhase.DRAW
+        state.players[0].hand_card_ids = ["hero_r", "hero_g", "hero_b", "hero_k"]
+        cmd = DiscardCardsCommand(room_id="r1", player_id="p1", card_ids=["hero_r", "hero_g"])
+        with pytest.raises(CommandRejected) as exc:
+            handle_discard_cards(state, cmd)
+        assert exc.value.code == "MUST_DISCARD_TO_THREE"
 
     def test_rejects_when_card_not_in_hand(self):
         state = two_player_state()
