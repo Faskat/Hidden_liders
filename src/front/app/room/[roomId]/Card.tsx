@@ -89,7 +89,10 @@ export function GameCard({
 
   /** Ключ арту — англійське ім'я з каталогу, а не card_id: див. lib/cardart/types.ts. */
   const artKey = catalogProp?.[cardId]?.name ?? resolved?.name ?? name;
-  const iconPx = Math.max(9, spec.footerFontPx);
+  // Нижня межа 11, а не 9: на найдрібніших картах підпис має кегль 10, і значок
+  // карти зі стану («прихована» / «лицьова») на цьому розмірі переставав
+  // читатися — залишалася пляма без ока.
+  const iconPx = Math.max(11, spec.footerFontPx);
   // Нижня межа — щоб зменшений кегль назви не потягнув за собою бейдж у нечитне.
   const badgePx = Math.max(11, Math.round(spec.nameFontPx * 1.25));
   /** Показуємо українською, а рушій арту й далі ключується англійською назвою. */

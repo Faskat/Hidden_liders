@@ -50,265 +50,323 @@ const LAND_CLASS: Record<Land, string> = {
 const TOKEN_PX = 50;
 
 /**
- * Краєвид клітинки.
+ * Краєвид треку — одна картина на всі дванадцять клітинок.
  *
- * Замість штриховки — намальована місцевість, і саме поклітинно, а не смугою на
- * весь трек: смуга не збігалася з межами клітинок, і кордон земель припадав на
- * середину клітинки. Тепер кожна сцена живе у власній клітинці, а сусідні
- * стикуються по краях (хвилі, лінія землі, дахи йдуть наскрізь).
+ * Доти кожна клітинка малювала власну сцену, і на стиках земель дві різні
+ * картинки доводилося зводити прозорими смугами. Виходив саме перехід між
+ * картинками, а не місцевість: обрій, берегова лінія й лінія забудови в
+ * сусідніх клітинках не збігалися, бо їх ніхто й не збігав.
  *
- * `preserveAspectRatio="none"` безпечний: клітинка має фіксовані 75×225, тобто
- * рівно пропорції viewBox (1:3).
+ * Тут один пейзаж на всю дошку: море ліворуч, гавань на березі, лісова тераса
+ * над імперським містом, руїни й цвинтар праворуч. Клітинки лягають зверху
+ * сіткою, і межа земель проходить там, де її малює сам пейзаж, а не там, де
+ * закінчується клітинка.
  *
- * Жодних `id` і градієнтів: на треку дванадцять таких сцен, ідентифікатори
- * зіткнулися б — те саме правило, що й для деталей арту карт.
+ * `preserveAspectRatio="none"` нічого не спотворює: 600×150 одиниць лягають на
+ * 900×225 пікселів, тобто рівно ×1.5 по обох осях. Рівність тримається на тому,
+ * що клітинка має 75×225 при 50×150 одиниць — змінивши одне, треба поправити й
+ * друге.
+ *
+ * `id` у градієнтах тут безпечні: трек на сторінці один. Для деталей арту карт
+ * правило зворотне — там до сімдесяти копій того самого малюнка, і `id` вони
+ * розділили б між собою.
  */
-const SKY = "#c3dcea";
-const SEA = "#4a90b8";
-const SEA_DEEP = "#2f6f96";
-const FOAM = "#e8f4fa";
+const TRACK_W = 600;
+const TRACK_H = 150;
+/** Лінія обрію: вище — небо, нижче — море й суходіл. */
+const HORIZON = 44;
+/** Верх підпірної стіни: над нею ліс Племен, під нею місто Імперії. */
+const TERRACE = 82;
+
 const WOOD = "#7a5334";
 const LEAF = "#4d7c3a";
 const LEAF_DARK = "#2f5a26";
 const ROOF = "#b8604c";
 const WALL = "#e0cfae";
 const STONE = "#9a9385";
-const DEAD_SKY = "#4a4458";
-const DEAD_GROUND = "#37324a";
-const DEAD_STONE = "#b4b0c4";
-
-/** Хвиля на всю ширину клітинки: період дорівнює 50, тож сусідні стикуються. */
-function wave(y: number): string {
-  return `M0 ${y}Q12.5 ${y - 3} 25 ${y}T50 ${y}`;
-}
+const FOAM = "#e8f4fa";
+const SAND = "#ddc9a3";
+const RUIN = "#6f6a7d";
 
 /**
- * Розмиття кордону земель.
+ * Берегова лінія — один шлях, від якого залежить усе на стику моря й суходолу.
  *
- * На стиках 4↔5 (вода і ліс) та 8↔9 (місто й зона війни) палітри розходяться
- * повністю, і межа читалася як склейка двох різних картинок: море обривалося
- * серед хвилі, за нею одразу починався ліс. Тут сусідня земля проступає крізь
- * свою — з обох боків шва, тож біля самої лінії обидві клітинки показують
- * приблизно порівну, і перехід виходить поступовим.
- *
- * Смугами зі спадною прозорістю, а не `<linearGradient>`: градієнту потрібен
- * `id`, а на треку дванадцять таких сцен — ідентифікатори зіткнулися б. Те саме
- * правило, що й для деталей арту карт.
- *
- * Смуги перекриваються на 0.4 одиниці: суміжні краї при масштабуванні дають
- * білі волосини, і на клітинці 75px вони видно.
+ * Море, піщана смуга й нижня тераса міста сходяться саме по ньому, тому крива
+ * винесена в константу: розійшовшись на одиницю, вони дали б наскрізну щілину.
  */
-const BLEND_STEPS = 10;
-const BLEND_W = 22;
+const COAST_DOWN = "C190 68 178 96 150 150";
+const COAST_UP = "C178 96 190 68 196 44";
+/** Де берег перетинає лінію тераси — порахована по самій кривій точка. */
+const COAST_AT_TERRACE = 183;
 
-function LandBlend({
-  side,
-  top,
-  bottom,
-  split,
-  max = 0.55,
-}: {
-  side: "left" | "right";
-  /** Колір сусідньої землі вище лінії поділу та нижче неї. */
-  top: string;
-  bottom: string;
-  split: number;
-  max?: number;
-}) {
-  const step = BLEND_W / BLEND_STEPS;
+/** Хвойний ліс верхньої тераси: [x основи, висота]. */
+const PINES: readonly (readonly [number, number])[] = [
+  [208, 30], [221, 24], [234, 33], [247, 26], [260, 31], [274, 23],
+  [287, 32], [300, 27], [356, 26], [369, 31], [382, 25], [395, 29],
+  [408, 23], [421, 27],
+];
+
+/** Сухостій на сході: у зоні війни від дерев лишилися самі стовбури. */
+const SNAGS: readonly number[] = [432, 458, 484, 512, 540, 568, 594];
+
+/**
+ * Місто: [x, ширина, висота]. Задній ряд стоїть на терасі, передній — нижче.
+ *
+ * Забудова обривається біля x=424, тобто на початку клітинки 9: далі йде зона
+ * війни, і будинки в ній уже мають бути руїнами. Проміжок 316-350 порожній —
+ * там стоїть замок.
+ */
+const CITY_BACK: readonly (readonly [number, number, number])[] = [
+  [206, 22, 26], [230, 18, 21], [250, 24, 29], [276, 19, 23],
+  [297, 23, 27], [352, 18, 22], [372, 22, 28], [398, 18, 21],
+];
+const CITY_FRONT: readonly (readonly [number, number, number])[] = [
+  [200, 26, 30], [228, 22, 25], [252, 28, 33], [282, 23, 27],
+  [307, 27, 31], [352, 22, 26], [376, 26, 32], [404, 20, 24],
+];
+
+/** Руїни: ті самі будинки, але без дахів і з обваленим верхом. */
+const RUINS: readonly (readonly [number, number, number])[] = [
+  [418, 22, 24], [446, 17, 16], [470, 25, 29], [502, 19, 20],
+  [528, 23, 24], [556, 20, 22], [584, 16, 18],
+];
+
+/** Надгробки: [x, ширина, висота]. */
+const GRAVES: readonly (readonly [number, number, number])[] = [
+  [440, 10, 13], [466, 12, 16], [498, 10, 13], [524, 13, 18],
+  [552, 9, 12], [580, 12, 16],
+];
+
+/** Хвиля з періодом 24 одиниці, обрізана там, де починається берег. */
+function wave(y: number, until: number): string {
+  let d = `M0 ${y}`;
+  for (let x = 0; x + 24 <= until; x += 24) d += "q6 -3 12 0t12 0";
+  return d;
+}
+
+function House({ x, w, h, base }: { x: number; w: number; h: number; base: number }) {
   return (
     <g>
-      {Array.from({ length: BLEND_STEPS }, (_, j) => {
-        const x = side === "right" ? 50 - BLEND_W + j * step : j * step;
-        // Найщільніша смуга стоїть біля самого шва: праворуч це остання, ліворуч — перша.
-        const k = side === "right" ? j + 1 : BLEND_STEPS - j;
-        return (
-          <g key={j} opacity={(max * k) / BLEND_STEPS}>
-            <rect x={x} y={0} width={step + 0.4} height={split} fill={top} />
-            <rect x={x} y={split} width={step + 0.4} height={150 - split} fill={bottom} />
-          </g>
-        );
-      })}
+      <rect x={x} y={base - h} width={w} height={h} fill={WALL} />
+      <path
+        d={`M${x - 3} ${base - h}L${x + w / 2} ${base - h - w * 0.42}L${x + w + 3} ${base - h}Z`}
+        fill={ROOF}
+      />
+      <rect x={x + w / 2 - 2} y={base - h + 6} width="4" height="6" fill={WOOD} opacity="0.55" />
     </g>
   );
 }
 
-/** Небо й вода — те, чим земля «water» виглядає здалеку. */
-const WATER_BLEND = { top: SKY, bottom: SEA, split: 58 } as const;
-/** Ліс угорі, місто внизу — поділ рівно посередині, як у самій сцені. */
-const MID_BLEND = { top: "#a8cf8a", bottom: "#cbb894", split: 75 } as const;
-const DEAD_BLEND = { top: DEAD_SKY, bottom: DEAD_GROUND, split: 86 } as const;
-
-function CellScenery({ n }: { n: number }) {
-  const land = landOf(n);
+/** Хатина на дереві — те, за чим ліс Племен і впізнається. */
+function TreeHut({ x }: { x: number }) {
   return (
-    <svg className="power-cell-scene" viewBox="0 0 50 150" preserveAspectRatio="none" aria-hidden>
-      {land === "water" && (
-        <>
-          <rect x="0" y="0" width="50" height="58" fill={SKY} />
-          <rect x="0" y="58" width="50" height="92" fill={SEA} />
-          <rect x="0" y="104" width="50" height="46" fill={SEA_DEEP} opacity="0.5" />
-          <g fill="none" stroke={FOAM} strokeWidth="1.4" opacity="0.55">
-            <path d={wave(74)} />
-            <path d={wave(96)} />
-            <path d={wave(120)} />
-            <path d={wave(142)} />
-          </g>
-          {n === 1 && (
-            <g>
-              {/* Далеке вітрило на обрії. */}
-              <path d="M20 58 L20 44 L29 58 Z" fill="#ffffff" opacity="0.85" />
-              <path d="M17 58 h9 l-1.6 3 h-6.4 Z" fill={WOOD} />
-            </g>
-          )}
-          {n === 2 && (
-            <g>
-              {/* Скеля з води. */}
-              <path d="M8 70 L15 50 L23 70 Z" fill={STONE} />
-              <path d="M15 50 L18.4 59.5 L15 62 L11.6 59.5 Z" fill="#ffffff" opacity="0.5" />
-              <path d="M30 70 L34 60 L38 70 Z" fill={STONE} opacity="0.8" />
-            </g>
-          )}
-          {n === 3 && (
-            <g>
-              {/* Човен під вітрилом. */}
-              <path d="M25 40 L25 66 L38 66 Z" fill="#ffffff" opacity="0.9" />
-              <path d="M23.4 40 h1.6 v26 h-1.6 Z" fill={WOOD} />
-              <path d="M14 66 h24 l-4 7 h-16 Z" fill={WOOD} />
-            </g>
-          )}
-          {n === 4 && (
-            <g>
-              {/* Порт: пакгауз, кран і поміст на палях. */}
-              <rect x="4" y="30" width="20" height="22" fill={WALL} />
-              <path d="M2 30 L14 20 L26 30 Z" fill={ROOF} />
-              <rect x="11" y="40" width="6" height="12" fill={WOOD} />
-              <rect x="32" y="24" width="3" height="32" fill={WOOD} />
-              <path d="M33.5 26 L46 26 L46 30 L37 34 Z" fill={WOOD} />
-              <path d="M45 30 v9" stroke={WOOD} strokeWidth="1.2" />
-              <rect x="42" y="39" width="6" height="6" fill={ROOF} />
-              <rect x="0" y="52" width="50" height="5" fill={WOOD} />
-              <g fill={WOOD}>
-                <rect x="6" y="57" width="3.4" height="26" />
-                <rect x="24" y="57" width="3.4" height="30" />
-                <rect x="41" y="57" width="3.4" height="24" />
-              </g>
-            </g>
-          )}
-          {n === 4 && <LandBlend side="right" {...MID_BLEND} />}
-        </>
-      )}
+    <g>
+      <rect x={x} y="56" width="17" height="12" fill={WOOD} />
+      <path d={`M${x - 3} 56L${x + 8.5} 46L${x + 20} 56Z`} fill={ROOF} />
+      <rect x={x + 6} y="60" width="5" height="8" fill={LEAF_DARK} />
+      <g stroke={WOOD} strokeWidth="1.3">
+        <path
+          d={`M${x + 4} 68v${TERRACE - 68}M${x + 11} 68v${TERRACE - 68}M${x + 4} 72h7M${x + 4} 77h7`}
+        />
+      </g>
+    </g>
+  );
+}
 
-      {land === "mid" && (
-        <>
-          {/* Верхня половина — ліс Племен. */}
-          <rect x="0" y="0" width="50" height="75" fill="#a8cf8a" />
-          <rect x="0" y="0" width="50" height="24" fill={SKY} opacity="0.8" />
-          <g fill={LEAF}>
-            <path d="M2 68 L11 24 L20 68 Z" />
-            <path d="M28 70 L37 32 L46 70 Z" />
-          </g>
-          <g fill={LEAF_DARK} opacity="0.5">
-            <path d="M11 24 L16 48 L11 52 L6 48 Z" />
-            <path d="M37 32 L41 52 L37 55 L33 52 Z" />
-          </g>
-          <g fill={WOOD}>
-            <rect x="9.4" y="62" width="3.2" height="11" />
-            <rect x="35.4" y="64" width="3.2" height="9" />
-          </g>
-          {n % 2 === 1 ? (
-            <g>
-              {/* Хатина на дереві з драбиною — те, за чим ліс і впізнається. */}
-              <rect x="4" y="40" width="14" height="10" fill={WOOD} />
-              <path d="M2 40 L11 32 L20 40 Z" fill={ROOF} opacity="0.9" />
-              <rect x="9" y="44" width="4" height="6" fill={LEAF_DARK} />
-              <g stroke={WOOD} strokeWidth="1.2">
-                <path d="M9 50 v22M14 50 v22M9 55 h5M9 61 h5M9 67 h5" />
-              </g>
-            </g>
-          ) : (
-            <g>
-              <rect x="30" y="44" width="13" height="9" fill={WOOD} />
-              <path d="M28 44 L36.5 37 L45 44 Z" fill={ROOF} opacity="0.9" />
-              <rect x="34.6" y="47" width="4" height="6" fill={LEAF_DARK} />
-              <g stroke={WOOD} strokeWidth="1.2">
-                <path d="M33 53 v20M38 53 v20M33 58 h5M33 64 h5M33 70 h5" />
-              </g>
-            </g>
-          )}
+function TrackPanorama() {
+  return (
+    <svg
+      className="power-track-scene"
+      viewBox={`0 0 ${TRACK_W} ${TRACK_H}`}
+      preserveAspectRatio="none"
+      aria-hidden
+    >
+      <defs>
+        <linearGradient id="hl-trk-sky" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2={TRACK_W} y2="0">
+          <stop offset="0" stopColor="#c3dcea" />
+          <stop offset="0.3" stopColor="#cfe1e6" />
+          <stop offset="0.52" stopColor="#e6d6bb" />
+          <stop offset="0.7" stopColor="#b3a3a6" />
+          <stop offset="0.86" stopColor="#6c6478" />
+          <stop offset="1" stopColor="#413c50" />
+        </linearGradient>
+        <linearGradient id="hl-trk-sea" gradientUnits="userSpaceOnUse" x1="0" y1={HORIZON} x2="0" y2={TRACK_H}>
+          <stop offset="0" stopColor="#7ab6d2" />
+          <stop offset="0.45" stopColor="#4a90b8" />
+          <stop offset="1" stopColor="#2a688f" />
+        </linearGradient>
+        {/* Зелень має згаснути до x=430, тобто до початку клітинки 9: далі
+            йде зона війни. Тому перелом у градієнтах припадає на 0.5-0.7, а не
+            на самий кінець — інакше трава доживала б до одинадцятої клітинки. */}
+        <linearGradient id="hl-trk-grass" gradientUnits="userSpaceOnUse" x1="180" y1="0" x2={TRACK_W} y2="0">
+          <stop offset="0" stopColor="#bcd9a0" />
+          <stop offset="0.34" stopColor="#a8cf8a" />
+          <stop offset="0.52" stopColor="#8aa878" />
+          <stop offset="0.68" stopColor="#5a5b63" />
+          <stop offset="1" stopColor="#484257" />
+        </linearGradient>
+        <linearGradient id="hl-trk-ground" gradientUnits="userSpaceOnUse" x1="150" y1="0" x2={TRACK_W} y2="0">
+          <stop offset="0" stopColor="#dbc9a6" />
+          <stop offset="0.33" stopColor="#cbb894" />
+          <stop offset="0.55" stopColor="#a3958a" />
+          <stop offset="0.7" stopColor="#4c4557" />
+          <stop offset="1" stopColor="#36314a" />
+        </linearGradient>
+        {/* Сутінки над сходом: один шар на всю картину замість зведення двох
+            картинок. Саме він робить зону війни зоною війни, а не окремим
+            малюнком, приклеєним до міста. */}
+        <linearGradient id="hl-trk-dusk" gradientUnits="userSpaceOnUse" x1="368" y1="0" x2="520" y2="0">
+          <stop offset="0" stopColor="#2b2636" stopOpacity="0" />
+          <stop offset="0.5" stopColor="#2b2636" stopOpacity="0.42" />
+          <stop offset="1" stopColor="#2b2636" stopOpacity="0.72" />
+        </linearGradient>
+      </defs>
 
-          {/* Нижня половина — щільно забудоване місто Імперії. Межа рівно по
-              середині й наскрізна через усі чотири клітинки. */}
-          <rect x="0" y="75" width="50" height="75" fill="#cbb894" />
-          <rect x="0" y="73" width="50" height="3" fill={WOOD} opacity="0.55" />
-          <g>
-            <rect x="1" y="90" width="14" height="16" fill={WALL} />
-            <path d="M-1 90 L8 82 L17 90 Z" fill={ROOF} />
-            <rect x="18" y="93" width="13" height="13" fill={WALL} />
-            <path d="M16 93 L24.5 86 L33 93 Z" fill={ROOF} />
-            <rect x="34" y="88" width="15" height="18" fill={WALL} />
-            <path d="M32 88 L41.5 80 L51 88 Z" fill={ROOF} />
-          </g>
-          <g>
-            <rect x="-2" y="114" width="16" height="20" fill={WALL} />
-            <path d="M-4 114 L6 106 L16 114 Z" fill={ROOF} />
-            <rect x="17" y="118" width="14" height="16" fill={WALL} />
-            <path d="M15 118 L24 111 L33 118 Z" fill={ROOF} />
-            <rect x="35" y="116" width="16" height="18" fill={WALL} />
-            <path d="M33 116 L43 108 L53 116 Z" fill={ROOF} />
-          </g>
-          {n === 7 && (
-            <g>
-              {/* Замок: вежа з зубцями вища за все місто навколо. */}
-              <rect x="19" y="86" width="14" height="48" fill={STONE} />
-              <path d="M18 86h3v-4h3v4h3v-4h3v4h3v-5H18z" fill={STONE} />
-              <rect x="24" y="94" width="4" height="6" fill={DEAD_GROUND} opacity="0.55" />
-              <rect x="23" y="120" width="6" height="14" fill={WOOD} />
-            </g>
-          )}
-          <rect x="0" y="132" width="50" height="18" fill={STONE} opacity="0.4" />
-          <g stroke={WALL} strokeWidth="0.8" opacity="0.45">
-            <path d="M0 138 H50M0 144 H50M8 132 V150M20 132 V150M32 132 V150M44 132 V150" />
-          </g>
-          {n === 5 && <LandBlend side="left" {...WATER_BLEND} />}
-          {n === 8 && <LandBlend side="right" {...DEAD_BLEND} />}
-        </>
-      )}
+      <rect x="0" y="0" width={TRACK_W} height={HORIZON} fill="url(#hl-trk-sky)" />
 
-      {land === "dead" && (
-        <>
-          <rect x="0" y="0" width="50" height="150" fill={DEAD_SKY} />
-          <rect x="0" y="86" width="50" height="64" fill={DEAD_GROUND} />
-          {/* Туман: три смуги, що не доходять до країв. */}
-          <g fill="#ffffff" opacity="0.12">
-            <rect x="0" y="82" width="50" height="6" />
-            <rect x="0" y="102" width="50" height="4" />
-          </g>
-          {(n === 9 || n === 11) && (
-            <g>
-              {/* Надгробок із хрестом. */}
-              <path d="M10 108 V90 a7 7 0 0 1 14 0 v18 z" fill={DEAD_STONE} opacity="0.85" />
-              <g stroke={DEAD_GROUND} strokeWidth="1.6">
-                <path d="M17 94 v10M13 98 h8" />
-              </g>
-              <path d="M30 108 V96 a5 5 0 0 1 10 0 v12 z" fill={DEAD_STONE} opacity="0.6" />
-            </g>
-          )}
-          {(n === 10 || n === 12) && (
-            <g>
-              {/* Сухе дерево й похилена плита. */}
-              <g stroke={DEAD_STONE} strokeWidth="2" fill="none" opacity="0.7" strokeLinecap="round">
-                <path d="M14 108 V74M14 88 L6 78M14 82 L23 70M14 94 L7 88" />
-              </g>
-              <path d="M30 108 V92 h11 v16 z" fill={DEAD_STONE} opacity="0.55" />
-            </g>
-          )}
-          <g fill="#ffffff" opacity="0.08">
-            <rect x="0" y="126" width="50" height="5" />
-          </g>
-          {n === 9 && <LandBlend side="left" {...MID_BLEND} />}
-        </>
-      )}
+      {/* Море: від обрію до низу, праворуч обрізане берегом. */}
+      <path d={`M0 ${HORIZON}H196${COAST_DOWN}H0Z`} fill="url(#hl-trk-sea)" />
+      <g fill="none" stroke={FOAM} strokeWidth="1.3" opacity="0.45">
+        <path d={wave(58, 186)} />
+        <path d={wave(76, 180)} />
+        <path d={wave(96, 170)} />
+        <path d={wave(116, 160)} />
+        <path d={wave(134, 150)} />
+      </g>
+
+      {/* Далеке вітрило біля обрію. */}
+      <g>
+        <path d="M24 56V46l7 10Z" fill="#ffffff" opacity="0.85" />
+        <path d="M21 56h11l-2 3h-7z" fill={WOOD} />
+      </g>
+      {/* Скеля з води. */}
+      <g>
+        <path d="M104 84L112 66L120 84Z" fill={STONE} />
+        <path d="M112 66L116 74L112 77L108 74Z" fill="#ffffff" opacity="0.5" />
+      </g>
+      {/* Човен під вітрилом. */}
+      <g>
+        <path d="M71 84v28l21-14Z" fill="#ffffff" opacity="0.92" />
+        <rect x="68.6" y="82" width="2.4" height="32" fill={WOOD} />
+        <path d="M52 114h36l-6 8h-24z" fill={WOOD} />
+      </g>
+
+      {/* Суходіл однією плитою, тож лінія берега в лісу й міста спільна. */}
+      <path d={`M196 ${HORIZON}H${TRACK_W}V${TRACK_H}H150${COAST_UP}Z`} fill="url(#hl-trk-grass)" />
+      <path
+        d={`M${COAST_AT_TERRACE} ${TERRACE}H${TRACK_W}V${TRACK_H}H150C165 124 176 102 ${COAST_AT_TERRACE} ${TERRACE}Z`}
+        fill="url(#hl-trk-ground)"
+      />
+
+      {/* Піщана смуга вздовж берега й піна на самій лінії. */}
+      <path d={`M196 ${HORIZON}${COAST_DOWN}H164C192 96 204 68 209 ${HORIZON}Z`} fill={SAND} opacity="0.75" />
+      <path d={`M196 ${HORIZON}${COAST_DOWN}`} fill="none" stroke={FOAM} strokeWidth="2" opacity="0.7" />
+
+      {/* Ліс Племен на верхній терасі. */}
+      {PINES.map(([x, h]) => (
+        <g key={`p${x}`}>
+          <rect x={x - 1.4} y={TERRACE - 6} width="2.8" height="6" fill={WOOD} />
+          <path
+            d={`M${x - h * 0.3} ${TERRACE - 3}L${x} ${TERRACE - h}L${x + h * 0.3} ${TERRACE - 3}Z`}
+            fill={LEAF}
+          />
+          <path
+            d={`M${x} ${TERRACE - h}L${x + h * 0.16} ${TERRACE - h * 0.45}L${x} ${TERRACE - h * 0.32}L${x - h * 0.16} ${TERRACE - h * 0.45}Z`}
+            fill={LEAF_DARK}
+            opacity="0.5"
+          />
+        </g>
+      ))}
+      {/* Хатини стоять між соснами, але не на замку: він займає 316-348. */}
+      <TreeHut x={238} />
+      <TreeHut x={282} />
+
+      {/* Підпірна стіна: межа лісу й міста, наскрізна через усю дошку. */}
+      <rect x={COAST_AT_TERRACE} y={TERRACE} width={430 - COAST_AT_TERRACE} height="7" fill={STONE} />
+      {/* На сході стіна вже розсипалася — лишилися окремі ділянки. */}
+      <g fill={STONE} opacity="0.8">
+        <rect x="438" y={TERRACE} width="16" height="7" />
+        <rect x="464" y={TERRACE + 1} width="12" height="6" />
+        <rect x="488" y={TERRACE} width="22" height="7" />
+        <rect x="520" y={TERRACE + 2} width="10" height="5" />
+        <rect x="548" y={TERRACE + 1} width="18" height="6" />
+      </g>
+      <path
+        d={`M${COAST_AT_TERRACE} ${TERRACE + 3.5}H430`}
+        stroke={WALL}
+        strokeWidth="0.7"
+        opacity="0.35"
+        fill="none"
+      />
+
+      {/* Гавань: поміст на палях, пакгауз і кран. */}
+      <g>
+        <g fill={WOOD}>
+          <rect x="128" y="112" width="68" height="5" />
+          <rect x="133" y="117" width="3.4" height="24" />
+          <rect x="148" y="117" width="3.4" height="21" />
+          <rect x="163" y="117" width="3.4" height="17" />
+        </g>
+        <rect x="180" y="96" width="26" height="24" fill={WALL} />
+        <path d="M177 96L193 86L209 96Z" fill={ROOF} />
+        <rect x="189" y="108" width="7" height="12" fill={WOOD} />
+        <g fill={WOOD}>
+          <rect x="212" y="88" width="3.4" height="32" />
+          <path d="M213.7 90h20v4l-14 4z" />
+          <rect x="229" y="99" width="1.2" height="9" />
+          <rect x="225" y="108" width="9" height="8" />
+        </g>
+      </g>
+
+      {/* Місто Імперії: два ряди для глибини. */}
+      {CITY_BACK.map(([x, w, h]) => (
+        <House key={`b${x}`} x={x} w={w} h={h} base={120} />
+      ))}
+      {/* Замок вищий за все місто й пробиває лінію тераси — його видно й з лісу. */}
+      <g>
+        <path d="M316 54h8v5h4v-5h8v5h4v-5h8v11h-32z" fill={STONE} />
+        <rect x="319" y="63" width="26" height="87" fill={STONE} />
+        <rect x="328" y="74" width="8" height="12" fill="#37324a" opacity="0.5" />
+        <rect x="326" y="132" width="12" height="18" fill={WOOD} />
+      </g>
+      {CITY_FRONT.map(([x, w, h]) => (
+        <House key={`f${x}`} x={x} w={w} h={h} base={TRACK_H} />
+      ))}
+
+      {/* Схід: ті самі будинки, але без дахів і з обваленим верхом. */}
+      {RUINS.map(([x, w, h]) => (
+        <path
+          key={`r${x}`}
+          d={`M${x} ${TRACK_H}V${TRACK_H - h}l${w * 0.28} ${h * 0.22}l${w * 0.22} ${-h * 0.3}l${w * 0.26} ${h * 0.34}l${w * 0.24} ${-h * 0.16}V${TRACK_H}Z`}
+          fill={RUIN}
+        />
+      ))}
+      {SNAGS.map((x) => (
+        <path
+          key={`s${x}`}
+          d={`M${x} ${TRACK_H}V${TRACK_H - 34}M${x} ${TRACK_H - 22}l-8 -9M${x} ${TRACK_H - 28}l9 -11M${x} ${TRACK_H - 14}l-7 -6`}
+          stroke="#8f8aa0"
+          strokeWidth="1.8"
+          fill="none"
+          opacity="0.75"
+          strokeLinecap="round"
+        />
+      ))}
+      {GRAVES.map(([x, w, h]) => (
+        <path
+          key={`g${x}`}
+          d={`M${x} ${TRACK_H}v${-h + w / 2}a${w / 2} ${w / 2} 0 0 1 ${w} 0v${h - w / 2}z`}
+          fill="#b4b0c4"
+          opacity="0.7"
+        />
+      ))}
+
+      <rect x="0" y="0" width={TRACK_W} height={TRACK_H} fill="url(#hl-trk-dusk)" />
+      {/* Туман лягає поверх сутінків — інакше вони його гасять. */}
+      <g fill="#ffffff" opacity="0.09">
+        <rect x="410" y="112" width="190" height="5" />
+        <rect x="430" y="130" width="170" height="4" />
+      </g>
     </svg>
   );
 }
@@ -479,13 +537,19 @@ function CardStack({ borderColor }: { borderColor: string }) {
   );
 }
 
+/**
+ * Стопка зони з лічильником.
+ *
+ * Підпису під стопкою немає: назва зони вже стоїть у заголовку панелі, за
+ * сантиметр вище, і другий раз тим самим словом нічого не додавала — виходило
+ * «Пустош … Пустош … 2». Лишається саме число, бо воно єдине, чого в заголовку
+ * немає. Гавань так і була влаштована — тепер усі три зони однакові.
+ */
 function CardStackPlaceholder({
   count,
-  label,
   accent = "default",
 }: {
   count: number;
-  label: string;
   accent?: "default" | "harbor" | "wilderness" | "graveyard";
 }) {
   const isHarbor = accent === "harbor";
@@ -501,8 +565,7 @@ function CardStackPlaceholder({
   return (
     <div className="flex flex-col items-center">
       <CardStack borderColor={borderColor} />
-      <span className={`mt-0.5 text-[10px] board-label ${textCl}`}>{label}</span>
-      <span className={`text-xs font-semibold ${textCl}`}>{count}</span>
+      <span className={`mt-0.5 text-xs font-bold ${textCl}`}>{count}</span>
     </div>
   );
 }
@@ -565,6 +628,10 @@ export function CentralBoard({
             назви, а рядок заголовка з'їдав висоту в найтіснішому місці столу. */}
         <div className="power-track w-full">
           <div className="power-track-inner flex">
+            {/* Пейзаж лежить під усіма клітинками одним шаром, а не в кожній
+                окремо: інакше межі земель проходили б там, де закінчується
+                клітинка, а не там, де їх малює місцевість. */}
+            <TrackPanorama />
             {TRACK_CELLS.map((n) => {
               const isWarCell = n >= 9;
               const pulse = isWarCell && bothInWarArea;
@@ -587,7 +654,6 @@ export function CentralBoard({
                       />
                     </svg>
                   )}
-                  <CellScenery n={n} />
                   <div className="power-cell-slot">
                     <span className="power-cell-socket" aria-hidden />
                     {trail.red === n && <MarkerToken variant="red" size={TOKEN_PX} trail title="Червоний (Імперія)" />}
@@ -705,7 +771,7 @@ export function CentralBoard({
           <div className={`${ZONE_PANEL} zone-wilderness-panel flex flex-col items-center flex-1 min-w-0`}>
             <ZoneArt kind="wilderness" />
             <p className={`${ZONE_HEADER} zone-wilderness-text`}>Пустош</p>
-            <CardStackPlaceholder count={state.wilderness_count} label="Пустош" accent="wilderness" />
+            <CardStackPlaceholder count={state.wilderness_count} accent="wilderness" />
           </div>
 
           {/* Graveyard — top card visible or placeholder "Проклятий імператор", count below */}
@@ -747,8 +813,9 @@ export function CentralBoard({
                   </div>
                 )}
               </div>
-              <span className="mt-0.5 text-[10px] board-label zone-graveyard-text">Цвинтар</span>
-              <span className="text-xs font-semibold zone-graveyard-text">{state.graveyard_count ?? (top ? 1 : 0)}</span>
+              {/* Назва зони стоїть у заголовку панелі — під картою лишається
+                  тільки лічильник, як у гавані та пустоші. */}
+              <span className="mt-0.5 text-xs font-bold zone-graveyard-text">{state.graveyard_count ?? (top ? 1 : 0)}</span>
             </div>
           </div>
         </div>
