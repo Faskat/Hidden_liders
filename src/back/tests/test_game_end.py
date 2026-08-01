@@ -173,3 +173,36 @@ class TestDetermineWinner:
             },
         )
         assert determine_winner(state) == "p2"
+
+
+class TestBuriedEmperorCountsAsAllFactions:
+    """Глосарій правил: «для цілей здібностей та при розв'язанні нічиї ця карта
+    рахується за одну карту всіх чотирьох фракцій»."""
+
+    def _two_aligned(self, p1_heroes, p2_heroes, faction="Imperials"):
+        catalog = make_catalog()
+        return GameState(
+            winner_faction=faction,
+            cards=catalog,
+            players=[
+                PlayerInState(player_id="p1", name="A", leader_card_id="leader_a",
+                              open_heroes=[HeroRef(card_id=c) for c in p1_heroes]),
+                PlayerInState(player_id="p2", name="B", leader_card_id="leader_a",
+                              open_heroes=[HeroRef(card_id=c) for c in p2_heroes]),
+            ],
+            revealed_leaders={
+                "p1": {"fraction_1": "Imperials", "fraction_2": "Undead", "leader_number": 5},
+                "p2": {"fraction_1": "Imperials", "fraction_2": "Undead", "leader_number": 4},
+            },
+        )
+
+    def test_emperor_counts_for_winning_faction(self):
+        # p2 має одного імперця й Імператора — це два героя фракції проти одного.
+        state = self._two_aligned(["hero_r"], ["hero_r", "deceased_emperor"])
+        assert determine_winner(state) == "p2"
+
+    def test_emperor_counts_for_any_faction(self):
+        state = self._two_aligned(["hero_u"], ["deceased_emperor"], faction="Undead")
+        # По одному героєві фракції в кожного, далі — менше героїв усього. Порівну,
+        # тому вирішує номер лідера: у p1 він вищий.
+        assert determine_winner(state) == "p1"

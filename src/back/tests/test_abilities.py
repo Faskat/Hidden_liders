@@ -114,3 +114,65 @@ class TestExecuteAbilityKillDual:
         state.players[0].hidden_heroes = [HeroRef(card_id="hero_2")]
         events = execute_ability(state, "hero_4", ability, "p1", None)
         assert sum(1 for e in events if e[0] == "HeroKilled") == 2
+
+
+class TestMoveMarkersLeadingWhenLevel:
+    """Глосарій: «якщо обидва жетони на одній клітинці, то жодний не є ні
+    провідним, ні відсталим». Отже ефект нема до чого застосувати, і за
+    загальним правилом його просто пропускають."""
+
+    def _state(self, red, green):
+        s = _state_two_players()
+        s.red_marker = red
+        s.green_marker = green
+        return s
+
+    ABILITY = {"action": "Move_Markers", "options": ["-1 leading", "+2 behind"]}
+
+    def test_no_movement_when_markers_level(self):
+        state = self._state(4, 4)
+        events = execute_ability(state, "hero_5", self.ABILITY, "p1", {"move_markers_option": 0})
+        assert [e[0] for e in events] == []
+
+    def test_leading_is_red_when_red_ahead(self):
+        state = self._state(6, 4)
+        events = execute_ability(state, "hero_5", self.ABILITY, "p1", {"move_markers_option": 0})
+        assert events[0][0] == "MarkerMoved"
+        assert (events[0][1]["red_delta"], events[0][1]["green_delta"]) == (-1, 0)
+
+    def test_leading_is_green_when_green_ahead(self):
+        state = self._state(4, 6)
+        events = execute_ability(state, "hero_5", self.ABILITY, "p1", {"move_markers_option": 0})
+        assert (events[0][1]["red_delta"], events[0][1]["green_delta"]) == (0, -1)
+
+    def test_behind_marker_when_green_ahead(self):
+        state = self._state(4, 6)
+        events = execute_ability(state, "hero_5", self.ABILITY, "p1", {"move_markers_option": 1})
+        assert (events[0][1]["red_delta"], events[0][1]["green_delta"]) == (2, 0)
+
+
+class TestBuriedEmperorIsAnyFaction:
+    """Той самий глосарій: Імператор — ціль для будь-якого фракційного фільтра."""
+
+    def test_emperor_is_valid_target_for_faction_filter(self):
+        state = _state_two_players()
+        state.cards["deceased_emperor"] = {"name": "Deceased Emperor", "faction": "Joker"}
+        state.players[1].hidden_heroes = [HeroRef(card_id="deceased_emperor")]
+        ability = {
+            "action": "Kill", "target_player": "other", "target_zone": "Party",
+            "visibility": "face_down", "filters": {"fraction": "Undead"},
+        }
+        events = execute_ability(state, "hero_4", ability, "p1", {"target_player_id": "p2"})
+        assert events[0][0] == "HeroKilled"
+        assert events[0][1]["card_id"] == "deceased_emperor"
+
+    def test_emperor_excluded_by_not_fraction_filter(self):
+        state = _state_two_players()
+        state.cards["deceased_emperor"] = {"name": "Deceased Emperor", "faction": "Joker"}
+        state.players[1].hidden_heroes = [HeroRef(card_id="deceased_emperor")]
+        ability = {
+            "action": "Kill", "target_player": "other", "target_zone": "Party",
+            "visibility": "face_down", "filters": {"not_fraction": "Undead"},
+        }
+        events = execute_ability(state, "hero_4", ability, "p1", {"target_player_id": "p2"})
+        assert [e[0] for e in events] == []

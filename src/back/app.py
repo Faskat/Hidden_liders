@@ -6,6 +6,7 @@ import threading
 import uuid
 import logging
 from contextlib import asynccontextmanager
+from typing import Literal
 
 from fastapi import FastAPI, HTTPException, Header, Body, Depends, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
@@ -99,7 +100,10 @@ def get_session_manager() -> SessionManager:
 # --- DTOs ---
 class CreateRoomRequest(BaseModel):
     num_players: int = 2
-    game_mode: str = "full"
+    # Ліміт героїв для кінця гри береться як `full if game_mode == "full" else basic`,
+    # тож будь-який інший рядок мовчки вмикав коротшу базову гру. Друкарська
+    # помилка в режимі не має скорочувати партію — краще відмова на створенні.
+    game_mode: Literal["full", "basic"] = "full"
 
 
 class JoinRoomRequest(BaseModel):

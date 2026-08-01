@@ -6,6 +6,7 @@ import random
 from typing import Any
 
 from domain.state import GameState
+from domain.constants import JOKER_FACTION
 from domain.events import (
     HeroKilled,
     HeroRevealed,
@@ -54,11 +55,21 @@ def _target_player(state: GameState, ability: dict, actor_id: str, targets: dict
 
 
 def _matches_filters(card_data: dict, filters: dict | None) -> bool:
+    """
+    Чи підходить карта під фракційний фільтр здібності.
+
+    Похований Імператор («Joker») рахується за карту всіх чотирьох фракцій — так
+    сказано в глосарії правил, і саме «для цілей здібностей та для розв'язання
+    нічиї». Тому він підходить під будь-яке «вбий Невмерлого» і, навпаки,
+    відпадає під будь-яке «крім Імперії»: одна з його фракцій завжди та сама, що
+    в фільтрі.
+    """
     if not filters:
         return True
-    if "fraction" in filters and card_data.get("faction") != filters["fraction"]:
+    is_joker = card_data.get("faction") == JOKER_FACTION
+    if "fraction" in filters and not is_joker and card_data.get("faction") != filters["fraction"]:
         return False
-    if "not_fraction" in filters and card_data.get("faction") == filters["not_fraction"]:
+    if "not_fraction" in filters and (is_joker or card_data.get("faction") == filters["not_fraction"]):
         return False
     return True
 
@@ -105,9 +116,23 @@ def _parse_move_effect(s: str) -> tuple[int, str] | None:
     return None
 
 
-def _leading_behind_deltas(state: GameState, red_d: int, green_d: int) -> tuple[int, int]:
-    """Apply red_d to leading marker, green_d to behind. Leading = marker with higher position."""
-    if state.red_marker >= state.green_marker:
+def _leading_behind_deltas(state: GameState, red_d: int, green_d: int) -> tuple[int, int] | None:
+    """
+    Розкласти «провідний / відсталий» на червоний і зелений.
+
+    Повертає None, коли жетони стоять на одній клітинці: за глосарієм
+    «провідний той, що правіший на треку, відсталий — той, що лівіший; якщо
+    обидва на одній клітинці, то жодний не є ні провідним, ні відсталим».
+    Отже цілі для ефекту немає, і за загальним правилом здібність, яку виконати
+    не можна, просто пропускається.
+
+    Доти при рівності провідним вважався червоний. Партія починається саме з
+    рівності (обидва на 4), тож перший же «-1 провідному» мовчки бив по червоному
+    — тобто карта грала за Племена, хоча за правилами не мала робити нічого.
+    """
+    if state.red_marker == state.green_marker:
+        return None
+    if state.red_marker > state.green_marker:
         return (red_d, green_d)
     return (green_d, red_d)
 
@@ -247,22 +272,27 @@ def execute_ability(
             parsed = _parse_move_effect(options[choice_idx])
             if parsed:
                 delta, kind = parsed
-                if kind == "leading":
-                    red_d, green_d = _leading_behind_deltas(state, delta, 0)
-                else:
-                    red_d, green_d = _leading_behind_deltas(state, 0, delta)
+                pair = (
+                    _leading_behind_deltas(state, delta, 0)
+                    if kind == "leading"
+                    else _leading_behind_deltas(state, 0, delta)
+                )
+                if pair:
+                    red_d, green_d = pair
         elif effects:
             if logic == "AND":
                 for eff in effects:
                     parsed = _parse_move_effect(eff)
                     if parsed:
                         d, kind = parsed
-                        if kind == "leading":
-                            rd, gd = _leading_behind_deltas(state, d, 0)
-                        else:
-                            rd, gd = _leading_behind_deltas(state, 0, d)
-                        red_d += rd
-                        green_d += gd
+                        pair = (
+                            _leading_behind_deltas(state, d, 0)
+                            if kind == "leading"
+                            else _leading_behind_deltas(state, 0, d)
+                        )
+                        if pair:
+                            red_d += pair[0]
+                            green_d += pair[1]
             else:
                 # OR: effects are alternatives — honour the player's choice, same as `options`
                 # (e.g. Triple Sword Lizard "-1 leading / -3 leading"; previously the first
@@ -273,10 +303,13 @@ def execute_ability(
                 parsed = _parse_move_effect(effects[choice_idx])
                 if parsed:
                     d, kind = parsed
-                    if kind == "leading":
-                        red_d, green_d = _leading_behind_deltas(state, d, 0)
-                    else:
-                        red_d, green_d = _leading_behind_deltas(state, 0, d)
+                    pair = (
+                        _leading_behind_deltas(state, d, 0)
+                        if kind == "leading"
+                        else _leading_behind_deltas(state, 0, d)
+                    )
+                    if pair:
+                        red_d, green_d = pair
         if red_d or green_d:
             events.append(("MarkerMoved", MarkerMoved(red_delta=red_d, green_delta=green_d).to_payload()))
         return events

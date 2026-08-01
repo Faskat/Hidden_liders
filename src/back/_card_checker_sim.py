@@ -321,7 +321,11 @@ def verify_play(pre, post, card, card_id, targets, actor_id, events, cards, prob
                     pe = parse_move_effect(e)
                     if pe:
                         d, kind = pe
-                        lead_red = pre.red_marker >= pre.green_marker
+                        # Жетони на одній клітинці: провідного й відсталого немає,
+                        # ефект пропускається (глосарій правил).
+                        if pre.red_marker == pre.green_marker:
+                            continue
+                        lead_red = pre.red_marker > pre.green_marker
                         if kind == "leading":
                             tot_r, tot_g = (tot_r + d, tot_g) if lead_red else (tot_r, tot_g + d)
                         else:
@@ -333,9 +337,9 @@ def verify_play(pre, post, card, card_id, targets, actor_id, events, cards, prob
                 if not (isinstance(ci, int) and 0 <= ci < len(effects)):
                     ci = 0
                 chosen = parse_move_effect(effects[ci])
-        if chosen and chosen != "AND_DONE":
+        if chosen and chosen != "AND_DONE" and pre.red_marker != pre.green_marker:
             d, kind = chosen
-            lead_red = pre.red_marker >= pre.green_marker
+            lead_red = pre.red_marker > pre.green_marker
             if kind == "leading":
                 exp = (d, 0) if lead_red else (0, d)
             else:

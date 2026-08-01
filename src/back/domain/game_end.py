@@ -3,7 +3,7 @@ Game end: winning faction by marker positions, hero limit trigger, tie-break.
 Order: Undead (both on 9-12) > Water (adjacent/same) > Empire (red >= green+2) > Tribes (green >= red+2).
 """
 from domain.state import GameState, PlayerInState
-from domain.constants import HERO_LIMIT, DARK_WAR_SPACES
+from domain.constants import HERO_LIMIT, DARK_WAR_SPACES, JOKER_FACTION
 
 
 def get_winning_faction(red: int, green: int) -> str | None:
@@ -36,10 +36,19 @@ def check_game_end_after_event(state: GameState) -> bool:
 
 
 def _faction_hero_count(player: PlayerInState, faction: str, cards: dict) -> int:
+    """
+    Скільки героїв фракції-переможця в загоні. Рахуються і відкриті, і приховані.
+
+    Похований Імператор рахується за будь-яку фракцію: за глосарієм правил він
+    «рахується за одну карту всіх чотирьох фракцій» саме при розв'язанні нічиї.
+    Доти він мав власну фракцію «Joker» і не підходив під жодну умову — гравець,
+    який витягнув його з цвинтаря собі в загін, при нічиї нічого за нього не
+    отримував.
+    """
     count = 0
     for ref in player.open_heroes + player.hidden_heroes:
         c = cards.get(ref.card_id, {})
-        if c.get("faction") == faction:
+        if c.get("faction") in (faction, JOKER_FACTION):
             count += 1
     return count
 

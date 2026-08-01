@@ -18,6 +18,8 @@ def make_catalog():
         "hero_r": {"name": "Red", "faction": "Imperials", "red_delta": 1, "green_delta": 0},
         "hero_g": {"name": "Green", "faction": "Highlanders", "red_delta": 0, "green_delta": 1},
         "hero_u": {"name": "U", "faction": "Undead", "red_delta": 0, "green_delta": 0},
+        # Похований Імператор: за правилами — одна карта всіх чотирьох фракцій.
+        "deceased_emperor": {"name": "Deceased Emperor", "faction": "Joker", "red_delta": 0, "green_delta": 0},
     }
 
 
