@@ -137,6 +137,28 @@ const GRAVES: readonly (readonly [number, number, number])[] = [
   [552, 9, 12], [580, 12, 16],
 ];
 
+/**
+ * Профіль дальнього плану — те, що робить обрій нерівним.
+ *
+ * Над морем він майже лежить на лінії обрію (море рівне, і ламати його не можна),
+ * лише двічі підіймається островами. Над суходолом росте пасмом, а на сході
+ * розсипається на битий гребінь.
+ *
+ * Замикається відрізком по самій лінії обрію, тому заливка лягає рівно між
+ * профілем і `HORIZON` — під нею вже нічого домальовувати не треба.
+ */
+const RIDGE_POINTS: readonly (readonly [number, number])[] = [
+  [0, 44], [18, 44], [26, 40], [34, 43], [46, 44],
+  [92, 44], [101, 37], [109, 41], [118, 34], [129, 43], [140, 44],
+  [186, 44], [199, 35], [212, 40], [226, 29], [241, 34],
+  [256, 24], [272, 31], [289, 21], [306, 28], [323, 19],
+  [341, 27], [358, 23], [375, 30], [393, 25], [411, 32],
+  [428, 27], [445, 34], [462, 23], [479, 31], [497, 20],
+  [515, 29], [533, 25], [551, 33], [569, 22], [587, 30], [600, 26],
+];
+const RIDGE =
+  `M${RIDGE_POINTS.map(([x, y]) => `${x} ${y}`).join("L")}L${TRACK_W} ${HORIZON}Z`;
+
 /** Хвиля з періодом 24 одиниці, обрізана там, де починається берег. */
 function wave(y: number, until: number): string {
   let d = `M0 ${y}`;
@@ -190,6 +212,16 @@ function TrackPanorama() {
           <stop offset="0.86" stopColor="#6c6478" />
           <stop offset="1" stopColor="#413c50" />
         </linearGradient>
+        {/* Пасмо йде тими самими землями, що й передній план, тільки бляклішими:
+            на такій відстані колір з'їдає повітря. */}
+        <linearGradient id="hl-trk-ridge" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2={TRACK_W} y2="0">
+          <stop offset="0" stopColor="#8fb2c6" />
+          <stop offset="0.3" stopColor="#9dbcc9" />
+          <stop offset="0.45" stopColor="#a3bb96" />
+          <stop offset="0.62" stopColor="#9aa88c" />
+          <stop offset="0.78" stopColor="#6f6b7e" />
+          <stop offset="1" stopColor="#4d4760" />
+        </linearGradient>
         <linearGradient id="hl-trk-sea" gradientUnits="userSpaceOnUse" x1="0" y1={HORIZON} x2="0" y2={TRACK_H}>
           <stop offset="0" stopColor="#7ab6d2" />
           <stop offset="0.45" stopColor="#4a90b8" />
@@ -223,6 +255,14 @@ function TrackPanorama() {
       </defs>
 
       <rect x="0" y="0" width={TRACK_W} height={HORIZON} fill="url(#hl-trk-sky)" />
+
+      {/* Дальній план: острови над водою, пасмо над сушею, биті шпилі на сході.
+          Без нього обрій ішов лінійкою через усі дванадцять клітинок — над морем
+          так і має бути, а над суходолом рівний обрій видає, що це просто край
+          прямокутника. Пасмо стоїть у серпанку: воно найдальше в картині й не
+          має сперечатися з лісом і містом. */}
+      <path d={RIDGE} fill="url(#hl-trk-ridge)" />
+      <path d={RIDGE} fill="#ffffff" opacity="0.1" />
 
       {/* Море: від обрію до низу, праворуч обрізане берегом. */}
       <path d={`M0 ${HORIZON}H196${COAST_DOWN}H0Z`} fill="url(#hl-trk-sea)" />
@@ -565,7 +605,7 @@ function CardStackPlaceholder({
   return (
     <div className="flex flex-col items-center">
       <CardStack borderColor={borderColor} />
-      <span className={`mt-0.5 text-xs font-bold ${textCl}`}>{count}</span>
+      <span className="zone-count mt-1">{count}</span>
     </div>
   );
 }
@@ -764,7 +804,7 @@ export function CentralBoard({
             >
               <CardStack borderColor="var(--zone-harbor-border)" />
             </button>
-            <span className="mt-0.5 text-xs font-bold zone-harbor-text">{state.harbor_count}</span>
+            <span className="zone-count mt-1">{state.harbor_count}</span>
           </div>
 
           {/* Wilderness */}
@@ -815,7 +855,7 @@ export function CentralBoard({
               </div>
               {/* Назва зони стоїть у заголовку панелі — під картою лишається
                   тільки лічильник, як у гавані та пустоші. */}
-              <span className="mt-0.5 text-xs font-bold zone-graveyard-text">{state.graveyard_count ?? (top ? 1 : 0)}</span>
+              <span className="zone-count mt-1">{state.graveyard_count ?? (top ? 1 : 0)}</span>
             </div>
           </div>
         </div>
