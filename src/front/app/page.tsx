@@ -247,7 +247,7 @@ export default function Home() {
       <RulesModal isOpen={rulesOpen} onClose={() => setRulesOpen(false)} />
 
       <footer className="absolute bottom-4 left-1/2 -translate-x-1/2 text-2xl text-[var(--text-muted)]">
-        By Skripnik Oleksiy
+        By Faskat
       </footer>
     </main>
   );
