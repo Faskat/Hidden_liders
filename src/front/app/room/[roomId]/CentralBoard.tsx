@@ -7,6 +7,10 @@ import { GameCard } from "./Card";
 import { CardBack, CARD_BACK_FIELD } from "@/lib/cardart/CardBack";
 import { CARD_SIZES } from "@/lib/cardSizes";
 import { hoverAnchor, type HoverHandler } from "./constants";
+import {
+  useZoneRef, zoneTavern, ZONE_HARBOR, ZONE_WILDERNESS, ZONE_GRAVEYARD,
+} from "./ZoneAnchors";
+import { InFlightHide } from "./useAnimationDirector";
 
 /** Клітинки треку сили: 1-8 звичайні, 9-12 — зона війни. */
 const TRACK_CELLS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
@@ -632,6 +636,12 @@ export function CentralBoard({
   onHoverCard?: HoverHandler;
 }) {
   const catalog = useCardsCatalog();
+  // Якорі зон дошки для шару польотів. Слоти таверни адресуються окремо: карта
+  // має вилітати з того слота, звідки її взяли, а не «з таверни взагалі».
+  const tavernRefs = [useZoneRef(zoneTavern(0)), useZoneRef(zoneTavern(1)), useZoneRef(zoneTavern(2))];
+  const harborRef = useZoneRef(ZONE_HARBOR);
+  const wildernessRef = useZoneRef(ZONE_WILDERNESS);
+  const graveyardRef = useZoneRef(ZONE_GRAVEYARD);
   const canDraw = phase === "DRAW" && isMyTurn && !loading;
   const top = state.graveyard_top;
   const bothInWarArea = state.red_marker >= 9 && state.green_marker >= 9;
@@ -738,6 +748,7 @@ export function CentralBoard({
                 // зараз хід, хоча дивитися на таверну має право будь-хто.
                 <span
                   key={i}
+                  ref={tavernRefs[i]}
                   className="inline-block shrink-0"
                   onMouseEnter={(e) =>
                     onHoverCard?.({ cardId: slot.card_id, isPlayed: false, anchor: hoverAnchor(e.currentTarget) })
@@ -750,19 +761,22 @@ export function CentralBoard({
                     onClick={() => canDraw && onDrawFromTavern(i)}
                     className="shrink-0 text-left rounded-lg overflow-hidden shadow-md disabled:cursor-not-allowed hover:ring-2 hover:ring-[var(--accent)] transition-all disabled:opacity-90"
                   >
-                    <GameCard
-                      cardId={slot.card_id}
-                      variant="open"
-                      name={slot.name}
-                      faction={slot.faction}
-                      size="large"
-                      catalog={catalog}
-                    />
+                    <InFlightHide zone={zoneTavern(i)} cardId={slot.card_id}>
+                      <GameCard
+                        cardId={slot.card_id}
+                        variant="open"
+                        name={slot.name}
+                        faction={slot.faction}
+                        size="large"
+                        catalog={catalog}
+                      />
+                    </InFlightHide>
                   </button>
                 </span>
               ) : (
                 <button
                   key={i}
+                  ref={tavernRefs[i]}
                   type="button"
                   disabled={!canDraw}
                   onClick={() => canDraw && onDrawFromTavern(i)}
@@ -802,7 +816,9 @@ export function CentralBoard({
               title={canDraw ? "Взяти карту з гавані" : "Гавань"}
               className="flex flex-col items-center rounded-lg transition-all disabled:cursor-not-allowed enabled:hover:ring-2 enabled:hover:ring-[var(--accent)]"
             >
-              <CardStack borderColor="var(--zone-harbor-border)" />
+              <span ref={harborRef} className="inline-block">
+                <CardStack borderColor="var(--zone-harbor-border)" />
+              </span>
             </button>
             <span className="zone-count mt-1">{state.harbor_count}</span>
           </div>
@@ -811,7 +827,9 @@ export function CentralBoard({
           <div className={`${ZONE_PANEL} zone-wilderness-panel flex flex-col items-center flex-1 min-w-0`}>
             <ZoneArt kind="wilderness" />
             <p className={`${ZONE_HEADER} zone-wilderness-text`}>Пустош</p>
-            <CardStackPlaceholder count={state.wilderness_count} accent="wilderness" />
+            <span ref={wildernessRef} className="inline-block">
+              <CardStackPlaceholder count={state.wilderness_count} accent="wilderness" />
+            </span>
           </div>
 
           {/* Graveyard — top card visible or placeholder "Проклятий імператор", count below */}
@@ -820,6 +838,7 @@ export function CentralBoard({
             <p className={`${ZONE_HEADER} zone-graveyard-text`}>Цвинтар</p>
             <div className="flex flex-col items-center">
               <div
+                ref={graveyardRef}
                 className="rounded-lg overflow-hidden shadow-md shrink-0"
                 style={{ width: SLOT.w, height: SLOT.h }}
                 onMouseEnter={(e) =>
@@ -829,15 +848,17 @@ export function CentralBoard({
                 onMouseLeave={() => onHoverCard?.(null)}
               >
                 {top?.card_id ? (
-                  <GameCard
-                    cardId={top.card_id}
-                    variant="open"
-                    name={top.name}
-                    faction={top.faction}
-                    size="small"
-                    theme="graveyard"
-                    catalog={catalog}
-                  />
+                  <InFlightHide zone={ZONE_GRAVEYARD} cardId={top.card_id}>
+                    <GameCard
+                      cardId={top.card_id}
+                      variant="open"
+                      name={top.name}
+                      faction={top.faction}
+                      size="small"
+                      theme="graveyard"
+                      catalog={catalog}
+                    />
+                  </InFlightHide>
                 ) : (
                   <div
                     className="graveyard-card-bg rounded-lg border-2 flex flex-col items-center justify-center text-center box-border shadow-sm h-full w-full notranslate"

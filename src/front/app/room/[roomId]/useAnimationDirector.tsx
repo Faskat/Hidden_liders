@@ -7,7 +7,11 @@ import type { CardSizeToken } from "@/lib/cardSizes";
 import { GameCard } from "./Card";
 import { CARD_TOTAL_ROTATION, handCardSize } from "./constants";
 import { FLIGHT_MS, type Flight } from "./FlightLayer";
-import { rectOfCardIn, rectOfZone, zoneHand, zoneParty, type ContentRect, type ZoneKey } from "./ZoneAnchors";
+import {
+  rectOfCardIn, rectOfZone, zoneHand, zoneHidden, zoneParty, zoneTavern,
+  ZONE_GRAVEYARD, ZONE_HARBOR, ZONE_WILDERNESS,
+  type ContentRect, type ZoneKey,
+} from "./ZoneAnchors";
 
 /** Пауза між подіями однієї пачки. */
 const STAGGER_MS = 140;
@@ -139,44 +143,178 @@ export function useAnimationDirector(ctx: Ctx) {
     return CARD_TOTAL_ROTATION[seatOf(playerId)] ?? 0;
   }, [seatOf]);
 
+  /**
+   * Розмір карти в зоні.
+   *
+   * Політ починається розміром джерела й закінчується розміром цілі, тому
+   * ці числа мусять збігатися з тим, що реально малює розмітка, — інакше
+   * карта стрибне в перший або останній кадр.
+   */
+  const sizeOfZone = useCallback((zone: ZoneKey): CardSizeToken => {
+    if (zone.startsWith("hand:")) return handCardSize(seatOf(zone.slice(5)));
+    if (zone.startsWith("tavern:")) return "large";
+    if (zone === ZONE_GRAVEYARD) return "small";
+    if (zone === ZONE_HARBOR || zone === ZONE_WILDERNESS) return "small";
+    // Загін і приховані герої малюються найдрібнішим розміром.
+    return "tiny";
+  }, [seatOf]);
+
+  /**
+   * Хто «власник» зони — від нього залежить кут повороту карти.
+   * Зони дошки нікому не належать і лежать рівно.
+   */
+  const ownerOfZone = (zone: ZoneKey): string | undefined => {
+    const i = zone.indexOf(":");
+    return i > 0 && !zone.startsWith("tavern:") ? zone.slice(i + 1) : undefined;
+  };
+
+  /**
+   * Зібрати політ із зони в зону.
+   *
+   * `cardId` — чим малювати карту й що шукати в DOM; `undefined` означає
+   * сорочку. `hideAt` — зона, в якій ціль треба сховати на час польоту
+   * (там, де карта вже намальована новим станом).
+   */
+  const fly = useCallback((opts: {
+    fromZone: ZoneKey;
+    toZone: ZoneKey;
+    cardId?: string;
+    faceDown?: boolean;
+    hideAt?: ZoneKey;
+    flipToBack?: boolean;
+  }): string[] => {
+    const { state, catalog } = ctxRef.current;
+    const from = rectFor(opts.fromZone, opts.cardId);
+    const to = rectFor(opts.toZone, opts.cardId);
+    if (!from || !to) return [];
+
+    const fromSize = sizeOfZone(opts.fromZone);
+    const toSize = sizeOfZone(opts.toZone);
+    const cards = catalog ?? state.cards;
+    const face = opts.cardId && !opts.faceDown
+      ? <GameCard cardId={opts.cardId} variant="open" size={fromSize} catalog={cards} />
+      : <GameCard cardId={opts.cardId ?? "back"} variant="hidden" size={fromSize} />;
+
+    setFlights((prev) => [...prev, {
+      id: nextFlightId++,
+      from, to,
+      fromRotation: rotationOf(ownerOfZone(opts.fromZone)),
+      toRotation: rotationOf(ownerOfZone(opts.toZone)),
+      fromSize, toSize,
+      node: face,
+      flipTo: opts.flipToBack
+        ? <GameCard cardId={opts.cardId ?? "back"} variant="hidden" size={fromSize} />
+        : undefined,
+    }]);
+
+    if (!opts.hideAt || !opts.cardId) return [];
+    const key = flightKey(opts.hideAt, opts.cardId);
+    setInFlight((prev) => new Set(prev).add(key));
+    return [key];
+  }, [rectFor, rotationOf, sizeOfZone]);
+
+  /**
+   * Зона бекенда -> зона реєстру.
+   *
+   * Словник збігається навмисно (див. шапку ZoneAnchors), лишається тільки
+   * дописати id гравця там, де на бекенді він лежить окремим полем.
+   */
+  const mapZone = (zone: string | undefined, playerId?: string): ZoneKey | null => {
+    if (!zone) return null;
+    if (zone === "hand") return playerId ? zoneHand(playerId) : null;
+    if (zone === "party_open") return playerId ? zoneParty(playerId) : null;
+    if (zone === "party_hidden") return playerId ? zoneHidden(playerId) : null;
+    if (zone === "harbor") return ZONE_HARBOR;
+    if (zone === "wilderness") return ZONE_WILDERNESS;
+    if (zone === "graveyard") return ZONE_GRAVEYARD;
+    const m = /^tavern_(\d)$/.exec(zone);
+    return m ? zoneTavern(Number(m[1])) : null;
+  };
+
   /** Один крок сценарію. Повертає ключі, які треба відпустити після польоту. */
   const play = useCallback((ev: GameEvent): string[] => {
-    const { state, catalog } = ctxRef.current;
+    const owner = ev.player_id;
 
-    if (ev.event_type === "CardPlayed" && ev.player_id) {
-      const owner = ev.player_id;
-      const handSize: CardSizeToken = handCardSize(seatOf(owner));
-      const target = zoneParty(owner);
-      const from = rectFor(zoneHand(owner), ev.card_id);
-      // Карта вже в загоні — саме туди й летимо, з точністю до її місця у віялі.
-      const to = ev.card_id ? rectFor(target, ev.card_id) : rectOfZone(target);
-      if (!from || !to) return [];
+    switch (ev.event_type) {
+      case "CardPlayed": {
+        if (!owner) return [];
+        // Прихованого героя кладуть сорочкою вгору — карта перевертається
+        // в польоті. Для чужого гравця `card_id` відредаговано, тож летить
+        // сорочка з самого початку й перевертати нема чого.
+        const faceDown = ev.as_open === false;
+        return fly({
+          fromZone: zoneHand(owner),
+          toZone: faceDown ? zoneHidden(owner) : zoneParty(owner),
+          cardId: ev.card_id,
+          flipToBack: faceDown && !!ev.card_id,
+          hideAt: faceDown ? undefined : zoneParty(owner),
+        });
+      }
 
-      const rot = rotationOf(owner);
-      const face = ev.card_id ? (
-        <GameCard cardId={ev.card_id} variant="open" size={handSize} catalog={catalog ?? state.cards} />
-      ) : (
-        <GameCard cardId="hidden" variant="hidden" size={handSize} />
-      );
+      case "HeroDrawn":
+      case "CardDrawn": {
+        if (!owner) return [];
+        const src = ev.source === "tavern" && typeof ev.tavern_slot === "number"
+          ? zoneTavern(ev.tavern_slot)
+          : ZONE_HARBOR;
+        // Ціль не ховаємо: карта їде в руку, а рука суперника — сорочки,
+        // серед яких «ту саму» не знайти й ховати нема чого.
+        return fly({ fromZone: src, toZone: zoneHand(owner), cardId: ev.card_id });
+      }
 
-      setFlights((prev) => [...prev, {
-        id: nextFlightId++,
-        from, to,
-        fromRotation: rot,
-        toRotation: rot,
-        fromSize: handSize,
-        toSize: "tiny",
-        node: face,
-      }]);
+      case "TavernRefilled": {
+        if (typeof ev.slot_index !== "number") return [];
+        // З гавані виїжджає сорочка й перевертається лицем уже в слоті —
+        // тому летить `variant="hidden"`, а сам слот показує карту.
+        return fly({
+          fromZone: ZONE_HARBOR,
+          toZone: zoneTavern(ev.slot_index),
+          cardId: ev.card_id,
+          faceDown: true,
+          hideAt: zoneTavern(ev.slot_index),
+        });
+      }
 
-      if (!ev.card_id) return [];
-      const key = flightKey(target, ev.card_id);
-      setInFlight((prev) => new Set(prev).add(key));
-      return [key];
+      case "CardsDiscarded":
+      case "HeroDiscardedToWilderness": {
+        if (!owner) return [];
+        const ids = ev.card_ids ?? (ev.card_id ? [ev.card_id] : []);
+        // Скид без id (чужий гравець) усе одно показуємо — стільки сорочок,
+        // скільки карт пішло: рух руки суперника видно, вміст — ні.
+        const items = ids.length ? ids : Array.from({ length: ev.count ?? 0 });
+        const keys: string[] = [];
+        items.forEach((cid) => {
+          keys.push(...fly({
+            fromZone: zoneHand(owner),
+            toZone: ZONE_WILDERNESS,
+            cardId: typeof cid === "string" ? cid : undefined,
+            faceDown: true,
+          }));
+        });
+        return keys;
+      }
+
+      case "HeroKilled": {
+        if (!owner) return [];
+        return fly({
+          fromZone: zoneParty(owner),
+          toZone: ZONE_GRAVEYARD,
+          cardId: ev.card_id,
+          hideAt: ZONE_GRAVEYARD,
+        });
+      }
+
+      case "CardMoved": {
+        const fromZone = mapZone(ev.from_zone, ev.from_player_id ?? owner);
+        const toZone = mapZone(ev.to_zone, ev.to_player_id ?? owner);
+        if (!fromZone || !toZone) return [];
+        return fly({ fromZone, toZone, cardId: ev.card_id, hideAt: toZone });
+      }
+
+      default:
+        return [];
     }
-
-    return [];
-  }, [rectFor, rotationOf, seatOf]);
+  }, [fly]);
 
   const drain = useCallback(() => {
     if (running.current) return;
