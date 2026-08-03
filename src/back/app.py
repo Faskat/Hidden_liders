@@ -18,6 +18,7 @@ from session import SessionManager, GameSession, load_from_events
 from domain.state import GameState, TurnPhase
 from domain.reducer import apply_event
 from domain.projection import project_state_for_player
+from domain.event_redaction import redact_event_for_player
 from domain.events import GameCreated, PlayerJoined, PlayerLeft, BackToLobby
 from setup import generate_setup_events
 from domain.exceptions import CommandRejected
@@ -157,6 +158,41 @@ def _player_id_from_token(session: GameSession, token: str) -> str | None:
         if p.player_token == token:
             return p.player_id
     return None
+
+
+#: Скільки подій щонайбільше віддаємо за один запит. Клієнт, який повернувся
+#: з фону через півгодини, не має отримати всю партію одним шматком — при
+#: `events_truncated` фронт нічого не анімує й просто стрибає на новий стан.
+FEED_LIMIT = 200
+
+
+def _attach_feed(room_id: str, state, player_id: str, view: dict, since: int | None) -> dict:
+    """
+    Додає до view стрічку подій із курсором.
+
+    Окремого ендпоінта опитування навмисно немає: стан і події мають бути
+    узгоджені між собою, а два незалежні запити цього не гарантують — між
+    ними встигає пройти чужий хід. Тому кожна відповідь, що вже несе view,
+    несе й події, які до цього view призвели.
+
+    `since=None` (перше завантаження) — лише курсор: програвати анімацією всю
+    історію партії при вході в кімнату не треба.
+    """
+    cursor = event_store.max_sequence(room_id)
+    events: list[dict] = []
+    truncated = False
+    if since is not None and cursor > since:
+        rows = event_store.get_events_since(room_id, since, FEED_LIMIT)
+        truncated = cursor - since > FEED_LIMIT
+        for event_type, payload, seq in rows:
+            safe = redact_event_for_player(state, player_id, event_type, payload or {})
+            if safe is None:
+                continue
+            events.append({**safe, "seq": seq, "event_type": event_type})
+    view["events"] = events
+    view["event_cursor"] = cursor
+    view["events_truncated"] = truncated
+    return view
 
 
 # --- Health (no prefix, for load balancers) ---
@@ -332,7 +368,12 @@ def rejoin_room(room_id: str, body: RejoinRequest):
 
 
 @router.get("/rooms/{room_id}/state", summary="Get game state")
-def get_state(room_id: str, x_player_token: str = Header(..., alias="X-Player-Token")):
+def get_state(
+    room_id: str,
+    since: int | None = None,
+    x_player_token: str = Header(..., alias="X-Player-Token"),
+):
+    """Стан гравця. З `?since=N` до нього додається стрічка подій після N — для анімацій."""
     mgr = get_session_manager()
     session = mgr.get_or_load(room_id)
     if not session:
@@ -341,7 +382,7 @@ def get_state(room_id: str, x_player_token: str = Header(..., alias="X-Player-To
     if not player_id:
         raise HTTPException(401, detail={"code": "INVALID_TOKEN", "message": "Недійсний або прострочений токен"})
     view = project_state_for_player(session.state, player_id)
-    return view
+    return _attach_feed(room_id, session.state, player_id, view, since)
 
 
 @router.post("/rooms/{room_id}/leave", summary="Leave room (lobby only)")
@@ -439,9 +480,20 @@ def back_to_lobby(room_id: str, x_player_token: str = Header(..., alias="X-Playe
 def post_command(
     room_id: str,
     body: CommandRequest,
+    since: int | None = None,
     x_player_token: str = Header(..., alias="X-Player-Token"),
     idempotency_key: str | None = Header(None, alias="Idempotency-Key"),
 ):
+    """
+    Виконати команду.
+
+    `?since=N` працює так само, як у `/state`: відповідь несе не лише новий стан,
+    а й події після N — тобто ті, які щойно породила ця команда. Курсор беремо
+    від клієнта, а не знімок перед `persist_and_apply`, і це навмисно: каскад
+    кінця гри (`GameEndTriggered`, `LeaderRevealed`×N, `WinnerDetermined`)
+    дописується всередині `persist_and_apply` і в поверненому хендлером списку
+    подій його немає. Курсор його бачить, список — ні.
+    """
     mgr = get_session_manager()
     session = mgr.get_or_load(room_id)
     if not session:
@@ -460,7 +512,9 @@ def post_command(
 
         if idempotency_key and mgr.is_idempotent_command_processed(room_id, player_id, idempotency_key):
             view = project_state_for_player(session.state, player_id)
-            return {"state": view}
+            # Курсор потрібен і тут: без нього повтор запиту лишив би клієнта
+            # з старим `since`, і наступне опитування програло б ті самі події вдруге.
+            return {"state": _attach_feed(room_id, session.state, player_id, view, since)}
 
         play_card_pl = None
         response_extras = {}
@@ -472,10 +526,10 @@ def post_command(
                     raise HTTPException(403, detail={"code": "NOT_CREATOR", "message": "Лише власник кімнати може завершити гру"})
                 if session.state.game_ended:
                     view = project_state_for_player(session.state, player_id)
-                    return {"state": view}
+                    return {"state": _attach_feed(room_id, session.state, player_id, view, since)}
                 mgr.force_finish_game(session)
                 view = project_state_for_player(session.state, player_id)
-                return {"state": view}
+                return {"state": _attach_feed(room_id, session.state, player_id, view, since)}
             if cmd_name == "PlayCard":
                 pl = PlayCardPayload.model_validate(body.payload)
                 play_card_pl = pl
@@ -582,7 +636,7 @@ def post_command(
                             cid = tp.hidden_heroes[idx].card_id
                             response_extras["peek_card"] = session.state.cards.get(cid, {"card_id": cid})
     view = project_state_for_player(session.state, player_id)
-    return {"state": view, **response_extras}
+    return {"state": _attach_feed(room_id, session.state, player_id, view, since), **response_extras}
 
 
 # Mount v1 router and CORS

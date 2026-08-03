@@ -124,6 +124,36 @@ class EventStore:
             db.commit()
         return ids
 
+    def max_sequence(self, room_id: str) -> int:
+        """Найбільший sequence кімнати; 0, якщо подій ще немає."""
+        with self._session() as db:
+            max_seq = (
+                db.query(GameEventModel.sequence)
+                .filter(GameEventModel.room_id == room_id)
+                .order_by(GameEventModel.sequence.desc())
+                .limit(1)
+                .scalar()
+            )
+            return max_seq or 0
+
+    def get_events_since(self, room_id: str, since: int, limit: int) -> list[tuple[str, dict, int]]:
+        """
+        (event_type, payload, sequence) для sequence > since, за порядком, не більше limit.
+
+        Окремий метод, а не фільтр поверх `get_events_for_room`: стрічку читають
+        на кожному опитуванні, і перечитувати всю історію партії щоразу — те саме,
+        що не мати курсора взагалі.
+        """
+        with self._session() as db:
+            rows = (
+                db.query(GameEventModel)
+                .filter(GameEventModel.room_id == room_id, GameEventModel.sequence > since)
+                .order_by(GameEventModel.sequence)
+                .limit(limit)
+                .all()
+            )
+            return [(r.event_type, r.payload, r.sequence) for r in rows]
+
     def get_events_for_room(self, room_id: str) -> list[tuple[str, str, dict, int]]:
         """Return list of (event_id, event_type, payload, sequence) ordered by sequence."""
         with self._session() as db:
