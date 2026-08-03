@@ -303,6 +303,8 @@ def start_game(room_id: str, x_player_token: str = Header(..., alias="X-Player-T
         session = mgr.get_or_load(room_id)
         if not session or session.state.current_phase != TurnPhase.WAITING_FOR_PLAYERS:
             raise HTTPException(409, detail={"code": "GAME_ALREADY_STARTED", "message": "Гра вже почалась"})
+        # Знімаємо курсор ДО генерації, щоб віддати рівно події розкладу.
+        seq_before = event_store.max_sequence(room_id)
         seed = random.randint(0, 2**31 - 1)
         events = generate_setup_events(session.state, session.state.cards, seed=seed)
         for event_type, payload in events:
@@ -310,7 +312,10 @@ def start_game(room_id: str, x_player_token: str = Header(..., alias="X-Player-T
             session.apply_event_to_state(event_type, payload)
     view = project_state_for_player(session.state, player_id)
     logger.info("game_started room_id=%s", room_id[:8])
-    return {"state": view}
+    # Стрічка потрібна і тут: без неї той, хто натиснув «Почати», побачив би
+    # сцену роздачі лише з наступним опитуванням, тобто через кілька секунд
+    # після того, як стіл уже заповнився.
+    return {"state": _attach_feed(room_id, session.state, player_id, view, seq_before)}
 
 
 @router.post("/rooms/{room_id}/add_bot", summary="Add bot (testing)")

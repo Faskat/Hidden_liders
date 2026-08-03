@@ -160,7 +160,32 @@ function FlightCard({ flight, onDone }: { flight: Flight; onDone: (id: number) =
  * `translate(pan) scale(zoom)` дістався йому задарма й карта не від'їжджала
  * від дошки при зсуві чи зумі.
  */
-export function FlightLayer({ flights, onDone }: { flights: Flight[]; onDone: (id: number) => void }) {
+export function FlightLayer({
+  flights,
+  onDone,
+  skip,
+}: {
+  flights: Flight[];
+  onDone: (id: number) => void;
+  /** Обірвати все, що зараз грає: сцена роздачі триває кілька секунд. */
+  skip?: () => void;
+}) {
+  /**
+   * Клік ловиться на самому столі, а не на шарі.
+   *
+   * Шар має `pointer-events: none` — інакше він накрив би всю дошку й забрав
+   * кліки в карт. Тому слухач вішається на батька в фазі перехоплення: він
+   * спрацьовує до того, як клік дійде до карти, але карті не заважає.
+   */
+  useEffect(() => {
+    if (!skip) return;
+    const table = document.querySelector(".game-table");
+    if (!table) return;
+    const onClick = () => skip();
+    table.addEventListener("click", onClick, { capture: true });
+    return () => table.removeEventListener("click", onClick, { capture: true } as EventListenerOptions);
+  }, [skip]);
+
   return (
     <div
       ref={setFlightLayer}

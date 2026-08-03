@@ -537,8 +537,10 @@ export default function RoomPage() {
     if (!token) return;
     setLoading(true);
     try {
+      // Через applyView, а не setState: інакше той, хто натиснув «Почати»,
+      // єдиний з-за столу не побачив би сцену роздачі.
       const data = await startGame(roomId, token);
-      setState(data.state);
+      applyView(data.state);
     } catch (e) {
       showToast(e instanceof Error ? e.message : "Не вдалося почати гру");
     } finally {
@@ -1312,7 +1314,7 @@ export default function RoomPage() {
             * зумі. Модалки панелі гравця портальовані з протилежної причини —
             * їм `position: fixed` треба рахувати від вікна.
             */}
-          <FlightLayer flights={director.flights} onDone={director.onFlightDone} />
+          <FlightLayer flights={director.flights} onDone={director.onFlightDone} skip={director.skip} />
           </div>
         </div>
 

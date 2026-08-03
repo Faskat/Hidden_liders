@@ -27,6 +27,95 @@ const STAGGER_MS = 140;
  */
 const MAX_BATCH = 12;
 
+/** Фора, за яку React встигає змонтувати стан, що приїхав разом із подіями. */
+const LEAD_IN_MS = 40;
+
+/** Крок сцени роздачі. Коротший за звичайний: кроків багато, а сенс у ритмі. */
+const SETUP_STAGGER_MS = 90;
+
+/** На скільки розтягуємо роздачу незалежно від кількості гравців, мс. */
+const SETUP_TOTAL_MS = 2600;
+
+/** Нижче цього кроки зливаються в кашу. */
+const SETUP_STAGGER_MIN_MS = 45;
+
+/**
+ * Крок сцени підганяється під її довжину.
+ *
+ * Кроків у роздачі — `4 + 7×гравців`: на двох це 18, на шістьох 46. З
+ * фіксованим кроком роздача на шістьох тривала б утричі довше, ніж на двох,
+ * тож ціль — стала загальна тривалість, а не сталий крок. Верхня межа лишає
+ * малим партіям спокійний ритм замість неприродно повільного.
+ */
+function setupStagger(steps: number): number {
+  return Math.max(SETUP_STAGGER_MIN_MS, Math.min(SETUP_STAGGER_MS, Math.round(SETUP_TOTAL_MS / steps)));
+}
+
+/** Події, за якими впізнаємо початкову роздачу. */
+const SETUP_EVENTS = new Set([
+  "FirstPlayerChosen",
+  "MarkersPlaced",
+  "GraveyardInitialized",
+  "TavernFilled",
+  "StartingHandSet",
+  "HeroDrawn",
+]);
+
+/**
+ * Порядок кроків у сцені роздачі.
+ *
+ * Бекенд віддає події так, як їх зручно застосовувати: спершу все спорядження
+ * столу, потім гравці ПО ЧЕРЗІ, кожному одразу всі п'ять карт. Дивитися на це
+ * незручно — виглядає, наче одному роздали всю руку, і лише потім згадали про
+ * решту. Тому добір карт перекладається по колу: по одній карті кожному, і так
+ * п'ять разів, як роздають насправді.
+ *
+ * Решта подій розкладу пропускається: `LeaderDealt` і `DeckShuffled` нічого не
+ * рухають на екрані, а `StartingHandSet` лише повторює те, що вже показали
+ * п'ять `HeroDrawn`.
+ */
+function dealScene(events: GameEvent[]): GameEvent[] {
+  const table: GameEvent[] = [];
+  const byPlayer = new Map<string, GameEvent[]>();
+
+  for (const e of events) {
+    if (e.event_type === "TavernFilled") {
+      // Одна подія на всі три слоти — а показати треба, як їх викладають
+      // зліва направо. Ріжемо на подію на слот, і крок сцени робить решту.
+      // Безпечно: `TavernFilled` буває лише в розкладі (`setup.py:118`),
+      // добір по ходу гри — це вже `TavernRefilled`.
+      const slots = (e.tavern_slot_indices as number[] | undefined) ?? [];
+      const ids = e.card_ids ?? [];
+      slots.forEach((slot, i) => {
+        table.push({ ...e, tavern_slot_indices: [slot], card_ids: [ids[i]] } as GameEvent);
+      });
+    } else if (e.event_type === "GraveyardInitialized") {
+      table.push(e);
+    } else if (e.event_type === "HeroDrawn" && e.player_id) {
+      const list = byPlayer.get(e.player_id) ?? [];
+      list.push(e);
+      byPlayer.set(e.player_id, list);
+    } else if (e.event_type === "HeroPutFaceDown" || e.event_type === "HeroDiscardedToWilderness") {
+      // Ці два йдуть у кінець: спершу всі отримують карти, потім кожен
+      // визначається з прихованим героєм і скидом.
+      table.push({ ...e, __tail: true } as GameEvent);
+    }
+  }
+
+  // Array.from, а не spread: ціль компіляції нижча за es2015, і ітератор Map
+  // напряму не розкладається.
+  const hands = Array.from(byPlayer.values());
+  const rounds = Math.max(0, ...hands.map((h) => h.length));
+  const dealt: GameEvent[] = [];
+  for (let r = 0; r < rounds; r++) {
+    for (const h of hands) if (h[r]) dealt.push(h[r]);
+  }
+
+  const setupTable = table.filter((e) => !("__tail" in e));
+  const tail = table.filter((e) => "__tail" in e);
+  return [...setupTable, ...dealt, ...tail];
+}
+
 /**
  * Хто саме зараз летить: `"<зона>|<card_id>"`.
  *
@@ -93,9 +182,12 @@ export function useAnimationDirector(ctx: Ctx) {
   const [flights, setFlights] = useState<Flight[]>([]);
   const [inFlight, setInFlight] = useState<InFlightSet>(new Set());
 
-  const queue = useRef<GameEvent[]>([]);
+  /** Черга пачок: у кожної свій крок, бо сцена роздачі йде щільніше за хід. */
+  const queue = useRef<{ evs: GameEvent[]; stagger: number; scene?: boolean }[]>([]);
   const running = useRef(false);
   const timers = useRef<number[]>([]);
+  /** Чи є пачка, що грає зараз, сценою роздачі: лише її дозволено пропускати. */
+  const playingScene = useRef(false);
   /**
    * Найбільший `seq`, який уже пішов в анімацію.
    *
@@ -400,6 +492,35 @@ export function useAnimationDirector(ctx: Ctx) {
         return fly({ fromZone, toZone, cardId: ev.card_id, hideAt: toZone });
       }
 
+      case "TavernFilled": {
+        // Розклад на старті: три карти з гавані лягають у слоти, зліва направо.
+        const slots = (ev.tavern_slot_indices as number[] | undefined) ?? [];
+        const ids = ev.card_ids ?? [];
+        const keys: string[] = [];
+        slots.forEach((slot, i) => {
+          keys.push(...fly({
+            fromZone: ZONE_HARBOR,
+            toZone: zoneTavern(slot),
+            cardId: ids[i],
+            face: "down",
+            flipTo: "up",
+            hideAt: zoneTavern(slot),
+          }));
+        });
+        return keys;
+      }
+
+      case "GraveyardInitialized": {
+        return fly({
+          fromZone: ZONE_HARBOR,
+          toZone: ZONE_GRAVEYARD,
+          cardId: ev.card_id,
+          face: "down",
+          flipTo: "up",
+          hideAt: ZONE_GRAVEYARD,
+        });
+      }
+
       case "TurnPhaseChanged": {
         /**
          * Хід перейшов до іншого гравця — його панель коротко спалахує.
@@ -456,26 +577,66 @@ export function useAnimationDirector(ctx: Ctx) {
 
   const drain = useCallback(() => {
     if (running.current) return;
-    const batch = queue.current;
-    queue.current = [];
-    if (!batch.length) return;
+    const batch = queue.current.shift();
+    if (!batch) return;
     running.current = true;
+    playingScene.current = batch.scene === true;
 
-    batch.forEach((ev, i) => {
-      const t = window.setTimeout(() => {
-        const keys = play(ev);
-        if (keys.length) {
-          window.setTimeout(() => release(keys), FLIGHT_MS);
-        }
-        if (i === batch.length - 1) {
-          running.current = false;
-          // Поки грала ця пачка, могла накопичитися наступна.
-          if (queue.current.length) drain();
-        }
-      }, i * STAGGER_MS);
-      timers.current.push(t);
-    });
+    const schedule = () => {
+      batch.evs.forEach((ev, i) => {
+        const t = window.setTimeout(() => {
+          const keys = play(ev);
+          if (keys.length) {
+            window.setTimeout(() => release(keys), FLIGHT_MS);
+          }
+          if (i === batch.evs.length - 1) {
+            running.current = false;
+            playingScene.current = false;
+            // Поки грала ця пачка, могла накопичитися наступна.
+            if (queue.current.length) drain();
+          }
+        }, i * batch.stagger);
+        timers.current.push(t);
+      });
+    };
+
+    /**
+     * Фора перед першим кроком.
+     *
+     * Політ вимірюється по DOM: зона-джерело й зона-ціль мають уже існувати.
+     * Але події приходять разом зі станом, який їх породив, і без фори перший
+     * крок спрацював би до того, як React встиг змонтувати нове. Найгірше це
+     * в роздачі: перехід із лобі на стіл монтує дошку цілком, і крок нуль
+     * (цвинтар) тихо губився — зони ще не зареєстровані, міряти нема що.
+     *
+     * Саме таймер, а не `requestAnimationFrame`: у прихованій вкладці кадри
+     * не йдуть узагалі, і пачка зависла б назавжди — разом із чергою, бо
+     * `running` лишився б піднятим.
+     */
+    timers.current.push(window.setTimeout(schedule, LEAD_IN_MS));
   }, [play, release]);
+
+  /**
+   * Обірвати сцену роздачі.
+   *
+   * Вона триває майже три секунди, і гравцеві, який уже бачив її, має бути
+   * куди клацнути. Стан від цього не страждає — анімації декоративні й ідуть
+   * поверх уже правильної дошки.
+   *
+   * Тільки сцену: слухач висить на всьому столі, тож інакше клік по власній
+   * карті мимохідь обривав би показ чужого ходу — а його гравець якраз і не
+   * просив пропускати.
+   */
+  const skip = useCallback(() => {
+    if (!playingScene.current) return;
+    playingScene.current = false;
+    timers.current.forEach(window.clearTimeout);
+    timers.current = [];
+    queue.current = [];
+    running.current = false;
+    setFlights([]);
+    setInFlight(new Set());
+  }, []);
 
   /**
    * Прийняти нову пачку подій.
@@ -492,9 +653,27 @@ export function useAnimationDirector(ctx: Ctx) {
     // повернулася б наступним запитом і зіграла б давно застарілі події.
     const fresh = events.filter((e) => e.seq > lastSeq.current);
     if (typeof maxSeq === "number") lastSeq.current = Math.max(lastSeq.current, maxSeq);
+    if (reduced || truncated || !fresh.length) return;
 
-    if (reduced || truncated || !fresh.length || fresh.length > MAX_BATCH) return;
-    queue.current.push(...fresh);
+    /**
+     * Роздача — не «завелика пачка», а окрема сцена.
+     *
+     * Усі події розкладу прилітають одним шматком: на двох гравців це вже
+     * близько двадцяти подій, на шістьох — за п'ятдесят. Під загальне
+     * обмеження вони не проходять, і без окремої гілки початок партії був би
+     * єдиним моментом, коли стіл заповнюється зовсім без руху.
+     */
+    if (fresh.some((e) => SETUP_EVENTS.has(e.event_type))) {
+      const scene = dealScene(fresh);
+      if (scene.length) {
+        queue.current.push({ evs: scene, stagger: setupStagger(scene.length), scene: true });
+        drain();
+      }
+      return;
+    }
+
+    if (fresh.length > MAX_BATCH) return;
+    queue.current.push({ evs: fresh, stagger: STAGGER_MS });
     drain();
   }, [reduced, drain]);
 
@@ -503,5 +682,5 @@ export function useAnimationDirector(ctx: Ctx) {
     timers.current = [];
   }, []);
 
-  return { flights, inFlight, push, onFlightDone };
+  return { flights, inFlight, push, onFlightDone, skip };
 }

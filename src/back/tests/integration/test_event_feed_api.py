@@ -73,6 +73,35 @@ def test_since_zero_replays_setup(client):
     assert seqs[-1] == view["event_cursor"]
 
 
+def test_start_returns_the_setup_batch_itself(client):
+    """
+    Відповідь на «Почати» несе саму роздачу, а не лише стан.
+
+    Інакше той, хто натиснув кнопку, побачив би сцену роздачі аж із наступним
+    опитуванням — тобто через кілька секунд після того, як стіл уже заповнився.
+    """
+    if not _ready(client):
+        pytest.skip("backend not ready (cards not loaded)")
+    room_id = client.post(f"{API}/rooms", json={"num_players": 2, "game_mode": "full"}).json()["room_id"]
+    j1 = client.post(f"{API}/rooms/{room_id}/join", json={"name": "Alice"}).json()
+    client.post(f"{API}/rooms/{room_id}/join", json={"name": "Bob"})
+
+    view = client.post(
+        f"{API}/rooms/{room_id}/start", headers={"X-Player-Token": j1["player_token"]}
+    ).json()["state"]
+
+    types = [e["event_type"] for e in view["events"]]
+    assert "TavernFilled" in types
+    assert "HeroDrawn" in types
+    assert "StartingHandSet" in types
+    # Події лобі (GameCreated, PlayerJoined) сюди не потрапляють: курсор
+    # знімається перед генерацією, тож приїжджає рівно розклад.
+    assert "PlayerJoined" not in types
+    assert view["events"][-1]["seq"] == view["event_cursor"]
+    # А з цього курсора вже порожньо — сцену не програють двічі.
+    assert _state(client, room_id, j1["player_token"], since=view["event_cursor"])["events"] == []
+
+
 def test_no_tokens_or_seed_anywhere_in_the_feed(client):
     """Найдорожчий клас витоку: токен сесії і seed генератора."""
     if not _ready(client):
