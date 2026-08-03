@@ -1,7 +1,7 @@
 "use client";
 
 import { useParams, useSearchParams, useRouter } from "next/navigation";
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import {
   getState,
   startGame,
@@ -24,17 +24,44 @@ import { CentralBoard } from "./CentralBoard";
 import { PlayerZone } from "./PlayerZone";
 import { CurrentVictor } from "./CurrentVictor";
 import { GameCard } from "./Card";
-import { PHASE_STEPS, FACTION_LABEL, FACTION_STYLE, type HoverPayload } from "./constants";
+import { PHASE_STEPS, FACTION_LABEL, FACTION_STYLE, SEAT_LAYOUT, type HoverPayload } from "./constants";
 import { CARD_SIZES } from "@/lib/cardSizes";
 import { getCardById } from "@/lib/cards";
 import { abilityNeedsTargetSelection } from "@/lib/abilityTargets";
 import type { PlayCardTargets } from "@/lib/types";
 import { PlayCardTargetModal } from "./PlayCardTargetModal";
 import { RevealPeekModal } from "./RevealPeekModal";
+import { FlightLayer } from "./FlightLayer";
+import { InFlightProvider, useAnimationDirector, type SeatMap } from "./useAnimationDirector";
 
 const STORAGE_TOKEN = (roomId: string) => `hl_token_${roomId}`;
 const STORAGE_PLAYER = (roomId: string) => `hl_player_${roomId}`;
 const POLL_INTERVAL_MS = 4000;
+
+/**
+ * Заглушка для режисера, доки стану ще немає.
+ *
+ * Хук викликається безумовно (правила хуків), а стан з'являється лише після
+ * першого запиту. Порожній стан тут ніколи не малюється — режисер лише кладе
+ * його в ref, — але дозволяє не робити тип нижче необов'язковим у десятку місць.
+ */
+const EMPTY_STATE = {
+  room_id: "",
+  current_phase: "",
+  current_player_index: 0,
+  current_player_id: null,
+  red_marker: 1,
+  green_marker: 1,
+  players: [],
+  tavern: [],
+  harbor_count: 0,
+  wilderness_count: 0,
+  graveyard_top: null,
+  game_ended: false,
+  winner_faction: null,
+  winner_player_id: null,
+  revealed_leaders: {},
+} as GameStateView;
 
 export default function RoomPage() {
   const params = useParams();
@@ -44,6 +71,14 @@ export default function RoomPage() {
   const isCreator = searchParams.get("creator") === "1";
 
   const [state, setState] = useState<GameStateView | null>(null);
+  /**
+   * Курсор стрічки подій.
+   *
+   * У ref, а не в state, навмисно: він змінюється при кожній відповіді сервера,
+   * і в state тягнув би за собою зайвий рендер усього столу — а на курсор ніщо
+   * у розмітці не дивиться.
+   */
+  const eventCursor = useRef<number | undefined>(undefined);
   const [joinName, setJoinName] = useState("");
   const [loading, setLoading] = useState(false);
   const showToast = useToast();
@@ -327,6 +362,53 @@ export default function RoomPage() {
       .finally(() => setLoading(false));
   }, [roomId, isCreator, token, joinName]);
 
+  /**
+   * Розсадка гравців: player_id -> місце за столом.
+   *
+   * Потрібна режисеру, щоб знати кут, під яким лежать карти конкретного
+   * гравця. Індекс нуль — завжди сам глядач, тому список спершу прокручується
+   * так само, як у розмітці столу.
+   */
+  const seats = useMemo<SeatMap>(() => {
+    if (!state || "error" in state) return {};
+    const s = state as GameStateView;
+    const myId = typeof window !== "undefined" ? localStorage.getItem(STORAGE_PLAYER(roomId)) : null;
+    const meIdx = s.players.findIndex((p) => p.player_id === myId);
+    const ordered = meIdx < 0 ? s.players : [...s.players.slice(meIdx), ...s.players.slice(0, meIdx)];
+    const layout = SEAT_LAYOUT[ordered.length] ?? [];
+    const map: SeatMap = {};
+    ordered.forEach((p, i) => { map[p.player_id] = layout[i] ?? "bottom"; });
+    return map;
+  }, [state, roomId]);
+
+  const director = useAnimationDirector({
+    state: (state && !("error" in state) ? state : EMPTY_STATE) as GameStateView,
+    seats,
+    catalog: state && !("error" in state) ? (state as GameStateView).cards : undefined,
+  });
+  const pushEvents = director.push;
+
+  /**
+   * Прийняти відповідь сервера: новий стан, події й курсор — одним рухом.
+   *
+   * Один шлях для опитування і для відповіді на власну команду. Розрізняти їх
+   * не треба й не можна: карту в загін могли покласти і своїм ходом, і чужим,
+   * а виглядати це має однаково.
+   */
+  const applyView = useCallback((view: GameStateView) => {
+    // Порядок важливий: спершу стан, потім події.
+    //
+    // Режисер вимірює, КУДИ летіти, читаючи DOM — а карта опиняється в загоні
+    // лише після рендера нового стану. Якщо штовхнути події першими, перший
+    // крок може не знайти карти-цілі й полетіти в центр зони замість самої
+    // карти. `setState` із проміса React прошиває до кінця мікрозадач, а перший
+    // крок режисера стоїть у `setTimeout` — тобто вже в наступній макрозадачі,
+    // коли розмітка гарантовано оновлена.
+    if (typeof view.event_cursor === "number") eventCursor.current = view.event_cursor;
+    setState(view);
+    pushEvents(view.events, view.events_truncated);
+  }, [pushEvents]);
+
   const tryRejoin = useCallback(() => {
     if (!roomId || !token) return;
     if (rejoinAttemptedRef.current) {
@@ -358,17 +440,18 @@ export default function RoomPage() {
   useEffect(() => {
     if (!roomId || !token) return;
     let cancelled = false;
+    // Без `since`: заходячи в кімнату, не програємо анімацією всю партію з нуля.
     getState(roomId, token)
       .then((s) => {
         if (cancelled) return;
         if ("error" in (s as object)) tryRejoin();
-        else setState(s as GameStateView);
+        else applyView(s as GameStateView);
       })
       .catch(() => {
         if (!cancelled) tryRejoin();
       });
     return () => { cancelled = true; };
-  }, [roomId, token, tryRejoin]);
+  }, [roomId, token, tryRejoin, applyView]);
 
   useEffect(() => {
     if (state && typeof state === "object" && !("error" in state) && !(state as GameStateView).game_ended) {
@@ -379,15 +462,15 @@ export default function RoomPage() {
   useEffect(() => {
     if (!roomId || !token || !state || sessionLost) return;
     const interval = setInterval(() => {
-      getState(roomId, token)
+      getState(roomId, token, eventCursor.current)
         .then((next) => {
           if ("error" in (next as object)) tryRejoin();
-          else setState(next as GameStateView);
+          else applyView(next as GameStateView);
         })
         .catch(() => tryRejoin());
     }, POLL_INTERVAL_MS);
     return () => clearInterval(interval);
-  }, [roomId, token, state, sessionLost, tryRejoin]);
+  }, [roomId, token, state, sessionLost, tryRejoin, applyView]);
 
   // При виході зі сторінки (закриття вкладки, «назад», перехід по посиланню) — вийти з кімнати в лобі
   useEffect(() => {
@@ -514,8 +597,10 @@ export default function RoomPage() {
     if (!token) return;
     setLoading(true);
     try {
-      const data = (await sendCommand(roomId, token, command, payload)) as CommandResponse;
-      setState(data.state);
+      const data = (await sendCommand(
+        roomId, token, command, payload, undefined, eventCursor.current
+      )) as CommandResponse;
+      applyView(data.state);
       if (command === "PlayCard" && (data.reveal_harbor?.length || data.peek_card)) {
         setPlayCardExtra({
           ...(data.reveal_harbor?.length ? { reveal_harbor: data.reveal_harbor } : {}),
@@ -543,9 +628,11 @@ export default function RoomPage() {
   const handlePlayCardWithTargets = (targets: PlayCardTargets) => {
     if (!pendingPlayCardId || !token) return;
     setLoading(true);
-    sendCommand(roomId, token, "PlayCard", { card_id: pendingPlayCardId, targets })
+    sendCommand(
+      roomId, token, "PlayCard", { card_id: pendingPlayCardId, targets }, undefined, eventCursor.current
+    )
       .then((data: CommandResponse) => {
-        setState(data.state);
+        applyView(data.state);
         setPendingPlayCardId(null);
         if (data.reveal_harbor?.length || data.peek_card) {
           setPlayCardExtra({
@@ -589,8 +676,8 @@ export default function RoomPage() {
     if (s.current_player_id !== myId || !token) return;
     if (autoRefillSentRef.current) return;
     autoRefillSentRef.current = true;
-    sendCommand(roomId!, token, "RefillTavern", {})
-      .then((data) => setState(data.state))
+    sendCommand(roomId!, token, "RefillTavern", {}, undefined, eventCursor.current)
+      .then((data) => applyView(data.state))
       .catch(() => {
         autoRefillSentRef.current = false;
       });
@@ -914,6 +1001,8 @@ export default function RoomPage() {
   return (
     <main className="h-dvh max-h-dvh flex flex-col overflow-hidden px-2 sm:px-4 py-2">
       <CardsCatalogProvider catalog={s.cards}>
+      {/* Хто зараз у польоті — щоб карта не була видима одночасно й на місці, і в повітрі. */}
+      <InFlightProvider value={director.inFlight}>
       <div className="w-full flex-1 flex flex-col min-h-0 min-w-0 overflow-hidden">
         {/* Header: PhaseBar + links + compact Win conditions & Turn steps */}
         <header className="shrink-0 space-y-1 flex-shrink-0">
@@ -1214,6 +1303,16 @@ export default function RoomPage() {
               />
             </div>
           )}
+          {/**
+            * Шар польотів — остання дитина столу.
+            *
+            * Саме тут, а не в `body` через портал: столу задано
+            * `translate(pan) scale(zoom)`, і шар усередині отримує його
+            * задарма, тож летюча карта не від'їжджає від дошки при зсуві чи
+            * зумі. Модалки панелі гравця портальовані з протилежної причини —
+            * їм `position: fixed` треба рахувати від вікна.
+            */}
+          <FlightLayer flights={director.flights} onDone={director.onFlightDone} />
           </div>
         </div>
 
@@ -1382,6 +1481,7 @@ export default function RoomPage() {
             Результати
           </button>
         )}
+      </InFlightProvider>
       </CardsCatalogProvider>
       <RulesModal isOpen={rulesOpen} onClose={() => setRulesOpen(false)} />
       {s && playCardExtra && (

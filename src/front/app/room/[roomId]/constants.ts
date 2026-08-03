@@ -1,3 +1,5 @@
+import type { CardSizeToken } from "@/lib/cardSizes";
+
 /**
  * Наведення на карту для великого прев'ю.
  *
@@ -20,6 +22,80 @@ export function hoverAnchor(el: Element): HoverAnchor {
   const r = el.getBoundingClientRect();
   return { left: r.left, top: r.top, width: r.width, height: r.height };
 }
+
+/** Поворот панелі гравця цілком. */
+export const POSITION_ROTATION: Record<string, string> = {
+  bottom: "0deg",
+  left: "90deg",
+  top: "180deg",
+  right: "-90deg",
+  topLeft: "135deg",
+  topRight: "-135deg",
+};
+
+/** Внутрішній поворот шапки, щоб нік читався з місця власника. */
+export const CONTENT_INNER_ROTATION: Record<string, string> = {
+  bottom: "0deg",
+  left: "180deg",
+  top: "180deg",
+  right: "180deg",
+  topLeft: "180deg",
+  topRight: "180deg",
+};
+
+/** Додатковий поворот блоку карт усередині вже повернутої панелі. */
+export const CARD_FACE_ROTATION: Record<string, string> = {
+  bottom: "0deg",
+  left: "180deg",
+  top: "180deg",
+  right: "90deg",
+  topLeft: "90deg",
+  topRight: "45deg",
+};
+
+/**
+ * Розмір карт у руці залежно від місця.
+ *
+ * Своя рука велика, чужі — дрібні сорочки. Правило спільне для панелі гравця й
+ * для шару польотів: політ мусить стартувати рівно тим розміром, яким карта
+ * лежала в руці, інакше вона стрибне в перший же кадр анімації.
+ */
+export const handCardSize = (seat: string): CardSizeToken =>
+  seat === "bottom" ? "xlarge" : "tiny";
+
+/**
+ * Розсадка за столом: місце гравця за його індексом у `viewPlayers`
+ * (де нульовий — завжди сам глядач, унизу).
+ *
+ * Та сама розкладка, яку задають умови в розмітці столу; тут вона зібрана
+ * таблицею, бо анімаціям потрібно швидко відповісти на питання «під яким кутом
+ * лежать карти цього гравця», не читаючи DOM. Якщо розсадка колись зміниться —
+ * міняти доведеться обидва місця, тому таблиця стоїть поруч із кутами повороту.
+ */
+export const SEAT_LAYOUT: Record<number, readonly string[]> = {
+  2: ["bottom", "top"],
+  3: ["bottom", "left", "right"],
+  4: ["bottom", "left", "top", "right"],
+  5: ["bottom", "left", "topLeft", "topRight", "right"],
+  6: ["bottom", "left", "topLeft", "top", "topRight", "right"],
+};
+
+/**
+ * Під яким кутом карта реально лежить на екрані — сума двох поворотів вище.
+ *
+ * Потрібно шару польотів: карта, що летить у панель ліворуч, має прибути
+ * поверненою на 270°, інакше вона ляже впоперек цілі. Розкладати накопичену
+ * матрицю трансформацій заради цього не треба — числа вже є тут, і саме вони
+ * малюють дошку.
+ */
+export const CARD_TOTAL_ROTATION: Record<string, number> = {
+  bottom: 0,
+  left: 270,
+  top: 0,
+  right: 0,
+  topLeft: 225,
+  topRight: -90,
+};
 
 export const PHASE_STEPS = [
   { key: "PLAY", label: "Гра", description: "Зіграйте героя з руки на стіл або натисніть «Пропустити хід»." },

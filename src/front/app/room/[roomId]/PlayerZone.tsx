@@ -9,7 +9,12 @@ import { CardFan, type FanDirection } from "./CardFan";
 import { CARD_SIZES, type CardSizeToken } from "@/lib/cardSizes";
 import { CardBack } from "@/lib/cardart/CardBack";
 import { displayName } from "@/lib/cardNames";
-import { getHeroLimit, FACTION_STYLE, FACTION_LABEL, hoverAnchor, type HoverHandler } from "./constants";
+import {
+  getHeroLimit, FACTION_STYLE, FACTION_LABEL, hoverAnchor, handCardSize, type HoverHandler,
+  POSITION_ROTATION, CONTENT_INNER_ROTATION, CARD_FACE_ROTATION,
+} from "./constants";
+import { useZoneRef, zoneHand, zoneHidden, zoneParty } from "./ZoneAnchors";
+import { InFlightHide } from "./useAnimationDirector";
 
 function isHeroRef(
   x: PlayerView["open_heroes"][number]
@@ -43,35 +48,6 @@ function getOwnHiddenCardIds(p: PlayerView): string[] {
     .map((x) => x.card_id);
   return Array.from(new Set(ids));
 }
-
-const POSITION_ROTATION: Record<string, string> = {
-  bottom: "0deg",
-  left: "90deg",
-  top: "180deg",
-  right: "-90deg",
-  topLeft: "135deg",
-  topRight: "-135deg",
-};
-
-/** Inner content rotation so nickname + avatar face the owning player (readable from their seat). */
-const CONTENT_INNER_ROTATION: Record<string, string> = {
-  bottom: "0deg",
-  left: "180deg",
-  top: "180deg",
-  right: "180deg",
-  topLeft: "180deg",
-  topRight: "180deg",
-};
-
-/** Card rotation (zone space): left +180°, topLeft +90°, topRight +45°, right +90°. Applied to card blocks only (not inside contentInner). */
-const CARD_FACE_ROTATION: Record<string, string> = {
-  bottom: "0deg",
-  left: "180deg",
-  top: "180deg",
-  right: "90deg",
-  topLeft: "90deg",
-  topRight: "45deg",
-};
 
 export function PlayerZone({
   player,
@@ -112,6 +88,11 @@ export function PlayerZone({
   const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number } | null>(null);
   const hiddenBadgeRef = useRef<HTMLElement | null>(null);
   const ownHiddenCardIds = isMe ? getOwnHiddenCardIds(player) : [];
+  // Зони цього гравця в реєстрі якорів: звідки й куди летять його карти.
+  const partyZone = zoneParty(player.player_id);
+  const partyRef = useZoneRef(partyZone);
+  const handRef = useZoneRef(zoneHand(player.player_id));
+  const hiddenRef = useZoneRef(zoneHidden(player.player_id));
   const rotation = POSITION_ROTATION[position] ?? "0deg";
   const contentInnerRotation = CONTENT_INNER_ROTATION[position] ?? "0deg";
   const cardFaceRotation = CARD_FACE_ROTATION[position] ?? "0deg";
@@ -160,7 +141,7 @@ export function PlayerZone({
   const isMyBottom = isMe && position === "bottom";
 
   /** Один токен і для геометрії віяла, і для самих карт — інакше вони розходяться. */
-  const handSize: CardSizeToken = position === "bottom" ? "xlarge" : "tiny";
+  const handSize: CardSizeToken = handCardSize(position);
 
   const avatarState = gameEnded ? (isWinner ? "winner" : "ended") : isMyTurn ? "turn" : "idle";
 
@@ -207,8 +188,15 @@ export function PlayerZone({
             <span className={`font-medium text-sm truncate max-w-[120px] ${isMe ? "text-[var(--accent)]" : "text-[var(--text)]"}`}>
               {player.name}
             </span>
+            {/* Бейдж прихованих героїв — і ціль для польотів «сорочкою вгору».
+                Поки прихованих немає, зони теж немає: порожня обгортка з
+                `display: contents` віддавала б нульовий прямокутник, а щоб мати
+                свій прямокутник, їй довелося б займати місце і зсувати шапку
+                на ширину проміжку. Політ у цьому випадку йде в загін — див.
+                запасний варіант у режисері. */}
             {hiddenCount > 0 && (
-              isMe && ownHiddenCardIds.length > 0 ? (
+              <span ref={hiddenRef} className="inline-flex">
+              {isMe && ownHiddenCardIds.length > 0 ? (
                 <button
                   type="button"
                   ref={hiddenBadgeRef as React.RefObject<HTMLButtonElement>}
@@ -283,7 +271,8 @@ export function PlayerZone({
                       document.body
                     )}
                 </span>
-              )
+              )}
+              </span>
             )}
             {isMe && (
               <span className="bg-[var(--accent-soft)] text-[var(--accent)] text-xs font-medium px-1.5 py-0.5 rounded shrink-0">
@@ -346,6 +335,7 @@ export function PlayerZone({
       <div className="w-full flex justify-center overflow-visible">
         <div className="inline-block">
           <div
+            ref={partyRef}
             onDrop={handlePartyDrop}
             onDragOver={handlePartyDragOver}
             className={`min-h-[80px] rounded-lg transition-colors ${canPlayToParty ? "bg-[var(--accent-soft)]/20" : ""}`}
@@ -367,14 +357,16 @@ export function PlayerZone({
                     }
                     onMouseLeave={() => onHoverCard?.(null)}
                   >
-                    <GameCard
-                      cardId={h.card_id}
-                      variant="open"
-                      name={h.name}
-                      faction={h.faction}
-                      size="tiny"
-                      catalog={catalog}
-                    />
+                    <InFlightHide zone={partyZone} cardId={h.card_id}>
+                      <GameCard
+                        cardId={h.card_id}
+                        variant="open"
+                        name={h.name}
+                        faction={h.faction}
+                        size="tiny"
+                        catalog={catalog}
+                      />
+                    </InFlightHide>
                   </span>
                 ),
               }))}
@@ -386,7 +378,7 @@ export function PlayerZone({
       </div>
 
       <div className="w-full overflow-visible flex justify-center">
-        <div className="inline-block">
+        <div className="inline-block" ref={handRef}>
         {isMe ? (
           handCards.length > 0 ? (
             <CardFan

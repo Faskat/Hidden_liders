@@ -76,8 +76,20 @@ export async function backToLobby(roomId: string, token: string) {
   return text ? JSON.parse(text) : {};
 }
 
-export async function getState(roomId: string, token: string) {
-  const r = await fetch(`${API}/rooms/${roomId}/state`, {
+/**
+ * Курсор стрічки подій у рядок запиту.
+ *
+ * `since` навмисно живе на тих самих ендпоінтах, що й стан, а не на окремому:
+ * стан і події мають бути узгоджені між собою, а два незалежні запити цього не
+ * гарантують — між ними встигає пройти чужий хід. `undefined` (перший вхід у
+ * кімнату) означає «лише курсор, історію не програвати».
+ */
+function withSince(url: string, since?: number): string {
+  return since === undefined ? url : `${url}?since=${since}`;
+}
+
+export async function getState(roomId: string, token: string, since?: number) {
+  const r = await fetch(withSince(`${API}/rooms/${roomId}/state`, since), {
     headers: headers(token),
   });
   const text = await r.text();
@@ -90,11 +102,12 @@ export async function sendCommand(
   token: string,
   command: string,
   payload: Record<string, unknown>,
-  idempotencyKey?: string
+  idempotencyKey?: string,
+  since?: number
 ) {
   const h = headers(token) as Record<string, string>;
   if (idempotencyKey) h["Idempotency-Key"] = idempotencyKey;
-  const r = await fetch(`${API}/rooms/${roomId}/commands`, {
+  const r = await fetch(withSince(`${API}/rooms/${roomId}/commands`, since), {
     method: "POST",
     headers: h,
     body: JSON.stringify({ command, payload }),

@@ -112,6 +112,53 @@ export interface GameStateView {
   revealed_leaders: Record<string, unknown>;
   /** Card catalog from API: card_id -> { name, faction, markers?, ability?, ... } */
   cards?: Record<string, CardCatalogEntry>;
+  /**
+   * Стрічка подій після `since` — джерело анімацій.
+   *
+   * Приїжджає в тій самій відповіді, що й стан, тому події й стан гарантовано
+   * узгоджені. Порожня, якщо `since` не передавали: заходячи в кімнату, гру
+   * не програють анімацією з початку.
+   *
+   * Payload'и відредаговані під глядача (`domain/event_redaction.py`), тож
+   * будь-яке поле може бути відсутнім — приховану карту суперника клієнт не
+   * отримає навіть у стрічці.
+   */
+  events?: GameEvent[];
+  /** Найбільший `sequence` кімнати: те, що клієнт має надіслати наступним `since`. */
+  event_cursor?: number;
+  /** Клієнт відстав більше, ніж уміщається в одну відповідь: анімацію треба пропустити. */
+  events_truncated?: boolean;
+}
+
+/**
+ * Подія стрічки.
+ *
+ * Обов'язкові лише `event_type` і `seq`; решта полів залежить від типу події
+ * і від того, чи має цей глядач право їх бачити. Тому все, крім цих двох, —
+ * необов'язкове, і код анімацій зобов'язаний працювати без них.
+ */
+export interface GameEvent {
+  event_type: string;
+  seq: number;
+  player_id?: string;
+  card_id?: string;
+  card_ids?: string[];
+  hand_card_ids?: string[];
+  count?: number;
+  source?: string;
+  tavern_slot?: number;
+  slot_index?: number;
+  as_open?: boolean;
+  red_delta?: number;
+  green_delta?: number;
+  from_zone?: string;
+  to_zone?: string;
+  from_player_id?: string;
+  to_player_id?: string;
+  player_id_1?: string;
+  player_id_2?: string;
+  phase?: string;
+  [key: string]: unknown;
 }
 
 export interface CreateRoomResponse {
