@@ -351,27 +351,34 @@ export function PlayerZone({
             className={`min-h-[80px] rounded-lg transition-colors ${canPlayToParty ? "bg-[var(--accent-soft)]/20" : ""}`}
           >
           {openHeroes.length > 0 && (
-            <CardFan direction={position as FanDirection} interactive={true}>
-              {openHeroes.map((h, i) => (
-                <span
-                  key={`${h.card_id}-${i}`}
-                  className="inline-block"
-                  onMouseEnter={(e) =>
-                    onHoverCard?.({ cardId: h.card_id, isPlayed: true, anchor: hoverAnchor(e.currentTarget) })
-                  }
-                  onMouseLeave={() => onHoverCard?.(null)}
-                >
-                  <GameCard
-                    cardId={h.card_id}
-                    variant="open"
-                    name={h.name}
-                    faction={h.faction}
-                    size="tiny"
-                    catalog={catalog}
-                  />
-                </span>
-              ))}
-            </CardFan>
+            <CardFan
+              direction={position as FanDirection}
+              interactive={true}
+              // `getOpenHeroes` уже прибрав дублікати за card_id, тож ключ
+              // унікальний без індексу — а саме індекс і заважав би картам
+              // «переїжджати» після того, як одну з них забрали на цвинтар.
+              items={openHeroes.map((h) => ({
+                key: h.card_id,
+                node: (
+                  <span
+                    className="inline-block"
+                    onMouseEnter={(e) =>
+                      onHoverCard?.({ cardId: h.card_id, isPlayed: true, anchor: hoverAnchor(e.currentTarget) })
+                    }
+                    onMouseLeave={() => onHoverCard?.(null)}
+                  >
+                    <GameCard
+                      cardId={h.card_id}
+                      variant="open"
+                      name={h.name}
+                      faction={h.faction}
+                      size="tiny"
+                      catalog={catalog}
+                    />
+                  </span>
+                ),
+              }))}
+            />
           )}
 
           </div>
@@ -382,12 +389,16 @@ export function PlayerZone({
         <div className="inline-block">
         {isMe ? (
           handCards.length > 0 ? (
-            <CardFan direction={position as FanDirection} interactive={true} cardSize={handSize}>
-              {handCards.map((cid) => {
+            <CardFan
+              direction={position as FanDirection}
+              interactive={true}
+              cardSize={handSize}
+              items={handCards.map((cid) => {
                 const isSelectedForDiscard = discardMode && selectedForDiscard.includes(cid);
-                return (
+                return {
+                  key: cid,
+                  node: (
                   <button
-                    key={cid}
                     type="button"
                     disabled={discardMode ? false : !canPlayToParty}
                     onClick={() => {
@@ -416,18 +427,25 @@ export function PlayerZone({
                   >
                     <GameCard cardId={cid} variant="open" size={handSize} catalog={catalog} />
                   </button>
-                );
+                  ),
+                };
               })}
-            </CardFan>
+            />
           ) : (
             <p className="text-center text-[var(--text-muted)] text-xs py-1">Рука порожня</p>
           )
         ) : handCount > 0 ? (
-          <CardFan direction={position as FanDirection} interactive={true}>
-            {Array.from({ length: handCount }).map((_, i) => (
-              <GameCard key={i} cardId={`hidden-${i}`} variant="hidden" size="tiny" />
-            ))}
-          </CardFan>
+          <CardFan
+            direction={position as FanDirection}
+            interactive={true}
+            // Чужа рука — самі сорочки, і жодних id клієнт про неї не знає.
+            // Індекс тут коректний ключ саме тому, що карти взаємозамінні:
+            // «третя сорочка» — це позиція, а не конкретна карта.
+            items={Array.from({ length: handCount }).map((_, i) => ({
+              key: `hidden-${i}`,
+              node: <GameCard cardId={`hidden-${i}`} variant="hidden" size="tiny" />,
+            }))}
+          />
         ) : (
           <p className="text-center text-[var(--text-muted)] text-xs py-1">
             Карт у руці: 0

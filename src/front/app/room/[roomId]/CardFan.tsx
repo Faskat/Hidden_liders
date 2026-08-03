@@ -1,6 +1,6 @@
 "use client";
 
-import { Children, type ReactNode } from "react";
+import { type ReactNode } from "react";
 import { CARD_SIZES, fanStep, type CardSizeToken } from "@/lib/cardSizes";
 
 /** Карти від цієї ширини вважаємо «великими»: сильніший підйом при наведенні. */
@@ -98,19 +98,31 @@ function getHoverTransform(direction: FanDirection, isHandSize: boolean): string
   }
 }
 
+/**
+ * Карта у віялі разом зі своїм ключем.
+ *
+ * Ключ обов'язковий саме тому, що доти його не було. Віяло приймало
+ * `children` і ключувало позиційні обгортки індексом; `Children.toArray`
+ * при цьому переіндексовує дітей, тож варто було зіграти карту з середини
+ * руки — і решта не «переїжджала», а перемонтовувалася: карта, що була
+ * третьою, отримувала обгортку №2 разом із новим ключем усередині.
+ * З таким ключуванням анімувати переміщення неможливо в принципі —
+ * React бачить не той самий вузол на новому місці, а інший вузол на старому.
+ */
+export type FanItem = { key: string; node: ReactNode };
+
 export function CardFan({
-  children,
+  items,
   direction = "bottom",
   interactive = true,
   cardSize: fanSize = "tiny",
 }: {
-  children: ReactNode;
+  items: FanItem[];
   direction?: FanDirection;
   interactive?: boolean;
   /** Має збігатися з розміром, який передано в GameCard усередині віяла. */
   cardSize?: CardSizeToken;
 }) {
-  const items = Children.toArray(children).filter((c) => c != null);
   const n = items.length;
   if (n === 0) return null;
 
@@ -143,9 +155,9 @@ export function CardFan({
           minHeight: totalHeight,
         }}
       >
-        {items.map((child, i) => (
+        {items.map((item, i) => (
           <div
-            key={i}
+            key={item.key}
             className="absolute card-fan-outer shrink-0"
             style={getFanStyle(i, n, direction, dim.step, dim.width, dim.height)}
           >
@@ -154,7 +166,7 @@ export function CardFan({
               style={{ ["--fan-hover" as string]: hoverTransform } as React.CSSProperties}
             >
               <div className="card-fan-item-inner transition-[transform] duration-200 ease-out">
-                {child}
+                {item.node}
               </div>
             </div>
           </div>

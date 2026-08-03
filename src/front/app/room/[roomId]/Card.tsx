@@ -70,6 +70,7 @@ export function GameCard({
       <div
         className="rounded-lg border-2 overflow-hidden select-none"
         style={{ borderColor: CARD_BACK_FIELD, width: spec.w, height: spec.h }}
+        data-card-id={cardId}
       >
         <CardBack size={size} />
       </div>
@@ -138,6 +139,9 @@ export function GameCard({
       }}
       title={cardTooltip}
       translate="no"
+      // Ручка для шару польотів: інакше знайти в DOM саме ту карту, на яку має
+      // прилетіти анімація, немає по чому — розмітка карти всюди однакова.
+      data-card-id={cardId}
     >
       {/* Шар 1 — фон арту на всю карту, під назвою й підписом. */}
       <div className="absolute inset-0" style={artFilter} aria-hidden>
