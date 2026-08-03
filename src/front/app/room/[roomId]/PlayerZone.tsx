@@ -13,7 +13,7 @@ import {
   getHeroLimit, FACTION_STYLE, FACTION_LABEL, hoverAnchor, handCardSize, type HoverHandler,
   POSITION_ROTATION, CONTENT_INNER_ROTATION, CARD_FACE_ROTATION,
 } from "./constants";
-import { useZoneRef, zoneHand, zoneHidden, zoneParty } from "./ZoneAnchors";
+import { useZoneRef, zoneHand, zoneHidden, zoneLeader, zoneParty } from "./ZoneAnchors";
 import { InFlightHide } from "./useAnimationDirector";
 
 function isHeroRef(
@@ -93,6 +93,7 @@ export function PlayerZone({
   const partyRef = useZoneRef(partyZone);
   const handRef = useZoneRef(zoneHand(player.player_id));
   const hiddenRef = useZoneRef(zoneHidden(player.player_id));
+  const leaderRef = useZoneRef(zoneLeader(player.player_id));
   const rotation = POSITION_ROTATION[position] ?? "0deg";
   const contentInnerRotation = CONTENT_INNER_ROTATION[position] ?? "0deg";
   const cardFaceRotation = CARD_FACE_ROTATION[position] ?? "0deg";
@@ -161,6 +162,7 @@ export function PlayerZone({
             {!isMe && leader?.leader_card_id != null && (
               <span className="inline-block shrink-0">
                 <button
+                  ref={leaderRef as React.RefCallback<HTMLButtonElement>}
                   type="button"
                   className="rounded-lg overflow-hidden border-2 flex-shrink-0 transition-transform focus:outline-none focus:ring-2 focus:ring-[var(--accent)] cursor-default"
                   style={{ width: CARD_SIZES.leaderMini.w, height: CARD_SIZES.leaderMini.h }}

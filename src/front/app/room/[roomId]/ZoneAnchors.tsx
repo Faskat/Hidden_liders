@@ -28,6 +28,7 @@ export const zoneHand = (playerId: string) => `hand:${playerId}`;
 export const zoneParty = (playerId: string) => `party:${playerId}`;
 export const zoneHidden = (playerId: string) => `hidden:${playerId}`;
 export const zoneTavern = (slot: number) => `tavern:${slot}`;
+export const zoneLeader = (playerId: string) => `leader:${playerId}`;
 export const ZONE_HARBOR = "harbor";
 export const ZONE_WILDERNESS = "wilderness";
 export const ZONE_GRAVEYARD = "graveyard";
@@ -72,6 +73,19 @@ function toContent(r: DOMRect): ContentRect | null {
     w: r.width / k,
     h: r.height / k,
   };
+}
+
+/**
+ * Сам елемент зони — для анімацій на місці.
+ *
+ * Картку лідера в панелі не можна відправити через шар польотів: вона нікуди
+ * не летить, і її «лице» — це не `GameCard`, а власна плашка з назвою та
+ * фракціями. Дублювати цю розмітку в режисері заради перевороту було б гірше,
+ * ніж перевернути сам елемент на місці.
+ */
+export function elementOfZone(key: ZoneKey): HTMLElement | null {
+  const el = zones.get(key);
+  return el && el.isConnected ? el : null;
 }
 
 /** Прямокутник контейнера зони, або null, якщо зони зараз немає на екрані. */

@@ -8,7 +8,8 @@ import { GameCard } from "./Card";
 import { CARD_TOTAL_ROTATION, handCardSize } from "./constants";
 import { FLIGHT_MS, type Flight } from "./FlightLayer";
 import {
-  rectOfCardIn, rectOfZone, zoneHand, zoneHidden, zoneParty, zoneTavern,
+  elementOfZone, rectOfCardIn, rectOfZone,
+  zoneHand, zoneHidden, zoneLeader, zoneParty, zoneTavern,
   ZONE_GRAVEYARD, ZONE_HARBOR, ZONE_WILDERNESS,
   type ContentRect, type ZoneKey,
 } from "./ZoneAnchors";
@@ -76,6 +77,9 @@ export function InFlightHide({
 /** Куди сідає гравець на цьому екрані — потрібно, щоб знати кут повороту його зон. */
 export type SeatMap = Record<string, string>;
 
+/** Яким боком карта повернута: лицем чи сорочкою. */
+type Face = "up" | "down";
+
 type Ctx = {
   state: GameStateView;
   seats: SeatMap;
@@ -139,6 +143,18 @@ export function useAnimationDirector(ctx: Ctx) {
     return (playerId && ctxRef.current.seats[playerId]) || "bottom";
   }, []);
 
+  /**
+   * Зона прихованих героїв, а якщо її ще немає — загін.
+   *
+   * Бейдж прихованих малюється лише тоді, коли їх хоч один, тож у момент, коли
+   * гравець кладе ПЕРШОГО героя сорочкою вгору, зони-цілі ще не існує. Без
+   * цього запасного варіанту саме той хід — єдиний, коли гравець уперше ховає
+   * карту, — не показував би нічого.
+   */
+  const hiddenZoneOf = useCallback((playerId: string): ZoneKey => {
+    return rectOfZone(zoneHidden(playerId)) ? zoneHidden(playerId) : zoneParty(playerId);
+  }, []);
+
   const rotationOf = useCallback((playerId?: string): number => {
     return CARD_TOTAL_ROTATION[seatOf(playerId)] ?? 0;
   }, [seatOf]);
@@ -179,9 +195,11 @@ export function useAnimationDirector(ctx: Ctx) {
     fromZone: ZoneKey;
     toZone: ZoneKey;
     cardId?: string;
-    faceDown?: boolean;
+    /** Яким боком карта летить. За замовчуванням лицем — якщо id взагалі відомий. */
+    face?: Face;
+    /** Другий бік: якщо заданий, карта перевертається на середині шляху. */
+    flipTo?: Face;
     hideAt?: ZoneKey;
-    flipToBack?: boolean;
   }): string[] => {
     const { state, catalog } = ctxRef.current;
     const from = rectFor(opts.fromZone, opts.cardId);
@@ -191,9 +209,13 @@ export function useAnimationDirector(ctx: Ctx) {
     const fromSize = sizeOfZone(opts.fromZone);
     const toSize = sizeOfZone(opts.toZone);
     const cards = catalog ?? state.cards;
-    const face = opts.cardId && !opts.faceDown
-      ? <GameCard cardId={opts.cardId} variant="open" size={fromSize} catalog={cards} />
-      : <GameCard cardId={opts.cardId ?? "back"} variant="hidden" size={fromSize} />;
+    // Без id лицьового боку не існує: карту суперника клієнту не показали.
+    const side = (f: Face) =>
+      f === "up" && opts.cardId
+        ? <GameCard cardId={opts.cardId} variant="open" size={fromSize} catalog={cards} />
+        : <GameCard cardId={opts.cardId ?? "back"} variant="hidden" size={fromSize} />;
+
+    const startFace: Face = opts.face ?? (opts.cardId ? "up" : "down");
 
     setFlights((prev) => [...prev, {
       id: nextFlightId++,
@@ -201,9 +223,11 @@ export function useAnimationDirector(ctx: Ctx) {
       fromRotation: rotationOf(ownerOfZone(opts.fromZone)),
       toRotation: rotationOf(ownerOfZone(opts.toZone)),
       fromSize, toSize,
-      node: face,
-      flipTo: opts.flipToBack
-        ? <GameCard cardId={opts.cardId ?? "back"} variant="hidden" size={fromSize} />
+      node: side(startFace),
+      // Перевертати нема сенсу, якщо обидва боки намалюються однаково —
+      // тобто коли карта нам невідома й «лице» теж вийде сорочкою.
+      flipTo: opts.flipTo && opts.flipTo !== startFace && opts.cardId
+        ? side(opts.flipTo)
         : undefined,
     }]);
 
@@ -244,11 +268,71 @@ export function useAnimationDirector(ctx: Ctx) {
         const faceDown = ev.as_open === false;
         return fly({
           fromZone: zoneHand(owner),
-          toZone: faceDown ? zoneHidden(owner) : zoneParty(owner),
+          toZone: faceDown ? hiddenZoneOf(owner) : zoneParty(owner),
           cardId: ev.card_id,
-          flipToBack: faceDown && !!ev.card_id,
+          face: "up",
+          flipTo: faceDown ? "down" : undefined,
           hideAt: faceDown ? undefined : zoneParty(owner),
         });
+      }
+
+      case "HeroPutFaceDown": {
+        // Здібність «Place»: карта з руки лягає в приховані героїв.
+        if (!owner) return [];
+        return fly({
+          fromZone: zoneHand(owner),
+          toZone: hiddenZoneOf(owner),
+          cardId: ev.card_id,
+          face: "up",
+          flipTo: "down",
+        });
+      }
+
+      case "HeroRevealed": {
+        // Прихованого героя перевертають лицем: він переїжджає з бейджа
+        // прихованих у відкритий загін і по дорозі показує обличчя.
+        if (!owner) return [];
+        return fly({
+          fromZone: hiddenZoneOf(owner),
+          toZone: zoneParty(owner),
+          cardId: ev.card_id,
+          face: "down",
+          flipTo: "up",
+          hideAt: zoneParty(owner),
+        });
+      }
+
+      case "LeaderRevealed": {
+        /**
+         * Розгортання плашки лідера на місці.
+         *
+         * Не переворот «лице -> сорочка -> лице»: до розкриття плашки взагалі
+         * немає в розмітці. Проекція ховає `leader_card_id` чужого гравця до
+         * кінця гри (`leader_view` у projection.py), тож картка лідера
+         * з'являється вже відкритою — перевертати нічого. Тому вона
+         * розгортається з ребра: жест той самий, а бреше менше.
+         *
+         * Через шар польотів це не проходить узагалі: карта нікуди не летить,
+         * а її «лице» — власна плашка з назвою й фракціями, а не `GameCard`.
+         */
+        if (!owner) return [];
+        const el = elementOfZone(zoneLeader(owner));
+        el?.animate(
+          [{ transform: "scaleX(0)" }, { transform: "scaleX(1)" }],
+          { duration: FLIGHT_MS, easing: "cubic-bezier(.2,.8,.25,1)" }
+        );
+        return [];
+      }
+
+      case "HandsSwapped": {
+        // Дві зустрічні дуги сорочками. Що саме помінялося, знають лише
+        // учасники, і показувати це не можна — тому обидві карти безликі.
+        const a = ev.player_id_1;
+        const b = ev.player_id_2;
+        if (!a || !b) return [];
+        fly({ fromZone: zoneHand(a), toZone: zoneHand(b), face: "down" });
+        fly({ fromZone: zoneHand(b), toZone: zoneHand(a), face: "down" });
+        return [];
       }
 
       case "HeroDrawn":
@@ -270,7 +354,8 @@ export function useAnimationDirector(ctx: Ctx) {
           fromZone: ZONE_HARBOR,
           toZone: zoneTavern(ev.slot_index),
           cardId: ev.card_id,
-          faceDown: true,
+          face: "down",
+          flipTo: "up",
           hideAt: zoneTavern(ev.slot_index),
         });
       }
@@ -288,7 +373,9 @@ export function useAnimationDirector(ctx: Ctx) {
             fromZone: zoneHand(owner),
             toZone: ZONE_WILDERNESS,
             cardId: typeof cid === "string" ? cid : undefined,
-            faceDown: true,
+            // Скид іде в пустош сорочкою: у проекції пустош — самий лічильник,
+            // і показувати лице карти, яка туди пішла, було б більше, ніж дає стан.
+            face: "down",
           }));
         });
         return keys;
@@ -314,7 +401,7 @@ export function useAnimationDirector(ctx: Ctx) {
       default:
         return [];
     }
-  }, [fly]);
+  }, [fly, hiddenZoneOf]);
 
   const drain = useCallback(() => {
     if (running.current) return;
