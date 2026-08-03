@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import type { GameStateView } from "@/lib/types";
 import { useCardsCatalog } from "@/app/contexts/CardsCatalogContext";
 import { GameCard } from "./Card";
@@ -8,12 +8,15 @@ import { CardBack, CARD_BACK_FIELD } from "@/lib/cardart/CardBack";
 import { CARD_SIZES } from "@/lib/cardSizes";
 import { hoverAnchor, type HoverHandler } from "./constants";
 import {
-  useZoneRef, zoneTavern, ZONE_HARBOR, ZONE_WILDERNESS, ZONE_GRAVEYARD,
+  useZoneRef, zoneTavern, ZONE_HARBOR, ZONE_WILDERNESS, ZONE_GRAVEYARD, ZONE_TRACK,
 } from "./ZoneAnchors";
 import { InFlightHide } from "./useAnimationDirector";
 
 /** Клітинки треку сили: 1-8 звичайні, 9-12 — зона війни. */
 const TRACK_CELLS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+
+/** Скільки їде жетон між клітинками. Трохи довше за політ карти: шлях довший. */
+const MARKER_SLIDE_MS = 480;
 
 /**
  * Землі вздовж треку.
@@ -501,26 +504,28 @@ export function MarkerToken({
   variant,
   className = "",
   title,
-  trail = false,
   preview = false,
   size = 22,
+  /** Позначка для анімації переїзду; ставиться лише на «справжній» жетон на треку. */
+  live = false,
 }: {
   variant: "red" | "green";
   className?: string;
   title?: string;
-  trail?: boolean;
   preview?: boolean;
   size?: number;
+  live?: boolean;
 }) {
   const isRed = variant === "red";
   const base = isRed ? "var(--red)" : "var(--green)";
   const rim = isRed ? "#7b2b2b" : "#22551f";
   return (
     <span
-      className={`inline-flex shrink-0 ${trail ? "marker-trail absolute" : ""} ${className}`}
+      className={`inline-flex shrink-0 ${className}`}
       style={{ width: size, height: size, opacity: preview ? 0.65 : 1 }}
       title={title}
       aria-hidden
+      data-marker={live ? variant : undefined}
     >
       <svg viewBox="0 0 32 32" width={size} height={size} style={{ display: "block" }}>
         <circle cx="16" cy="16" r="15.2" fill={rim} />
@@ -642,27 +647,68 @@ export function CentralBoard({
   const harborRef = useZoneRef(ZONE_HARBOR);
   const wildernessRef = useZoneRef(ZONE_WILDERNESS);
   const graveyardRef = useZoneRef(ZONE_GRAVEYARD);
+  const trackZoneRef = useZoneRef(ZONE_TRACK);
   const canDraw = phase === "DRAW" && isMyTurn && !loading;
   const top = state.graveyard_top;
   const bothInWarArea = state.red_marker >= 9 && state.green_marker >= 9;
 
-  const [trail, setTrail] = useState<{ red?: number; green?: number }>({});
+  /**
+   * Переїзд жетона по треку.
+   *
+   * Доти рух показувала «примара»: у старій клітинці на пів секунди спалахувала
+   * копія жетона й гасла. Це говорило «щось зрушило», але не звідки й куди —
+   * а на треку з дванадцяти клітинок саме напрямок і величина кроку й важливі.
+   *
+   * Тепер їде сам жетон. Він уже намальований у новій клітинці (стан
+   * застосовано), тож анімація зворотна: жетон стартує зі зсувом, який
+   * дорівнює «стара клітинка мінус нова», і приїжджає в нуль. Це той самий
+   * прийом, що й у польотів карт, тільки без окремого шару — клітинки лежать
+   * в одному ряду, і достатньо різниці їхніх центрів.
+   *
+   * Ділити на зум не треба: обидва прямокутники виміряні в тих самих екранних
+   * координатах, а `translate` застосовується всередині тієї ж трансформації.
+   */
+  const trackRef = useRef<HTMLDivElement | null>(null);
+  const cellRefs = useRef<Record<number, HTMLElement | null>>({});
   const prevRedRef = useRef(state.red_marker);
   const prevGreenRef = useRef(state.green_marker);
   useEffect(() => {
-    const tr: { red?: number; green?: number } = {};
+    const slide = (variant: "red" | "green", from: number, to: number) => {
+      const a = cellRefs.current[from];
+      const b = cellRefs.current[to];
+      const token = trackRef.current?.querySelector<HTMLElement>(`[data-marker="${variant}"]`);
+      if (!a || !b || !token) return;
+      const ra = a.getBoundingClientRect();
+      const rb = b.getBoundingClientRect();
+      const dx = (ra.left + ra.width / 2) - (rb.left + rb.width / 2);
+      const dy = (ra.top + ra.height / 2) - (rb.top + rb.height / 2);
+      token.animate(
+        [
+          { transform: `translate(${dx}px, ${dy}px)` },
+          // Легкий підскок у середині: жетон переставляють, а не тягнуть.
+          { transform: `translate(${dx / 2}px, ${dy / 2 - 6}px) scale(1.12)`, offset: 0.5 },
+          { transform: "translate(0, 0)" },
+        ],
+        { duration: MARKER_SLIDE_MS, easing: "cubic-bezier(.2,.8,.25,1)" }
+      );
+      // Клітинка прибуття коротко світиться — куди саме приїхало, видно й тоді,
+      // коли жетон закрив собою номер.
+      b.animate(
+        [
+          { boxShadow: "inset 0 0 0 0 rgba(201,162,39,0)" },
+          { boxShadow: "inset 0 0 0 3px rgba(201,162,39,0.55)", offset: 0.4 },
+          { boxShadow: "inset 0 0 0 0 rgba(201,162,39,0)" },
+        ],
+        { duration: MARKER_SLIDE_MS + 200, easing: "ease-out" }
+      );
+    };
     if (state.red_marker !== prevRedRef.current) {
-      tr.red = prevRedRef.current;
+      slide("red", prevRedRef.current, state.red_marker);
       prevRedRef.current = state.red_marker;
     }
     if (state.green_marker !== prevGreenRef.current) {
-      tr.green = prevGreenRef.current;
+      slide("green", prevGreenRef.current, state.green_marker);
       prevGreenRef.current = state.green_marker;
-    }
-    if (Object.keys(tr).length > 0) {
-      setTrail(tr);
-      const t = setTimeout(() => setTrail({}), 500);
-      return () => clearTimeout(t);
     }
   }, [state.red_marker, state.green_marker]);
 
@@ -676,8 +722,8 @@ export function CentralBoard({
       <div className="flex-1 min-w-0 flex flex-col justify-center items-center px-4 py-3" style={{ minHeight: 120 }}>
         {/* Підпису над треком немає: дошка з номерами й жетонами не потребує
             назви, а рядок заголовка з'їдав висоту в найтіснішому місці столу. */}
-        <div className="power-track w-full">
-          <div className="power-track-inner flex">
+        <div className="power-track w-full" ref={trackRef}>
+          <div className="power-track-inner flex" ref={trackZoneRef}>
             {/* Пейзаж лежить під усіма клітинками одним шаром, а не в кожній
                 окремо: інакше межі земель проходили б там, де закінчується
                 клітинка, а не там, де їх малює місцевість. */}
@@ -690,6 +736,7 @@ export function CentralBoard({
               return (
                 <div
                   key={n}
+                  ref={(el) => { cellRefs.current[n] = el; }}
                   title={LAND_TITLE[land]}
                   className={`power-cell ${LAND_CLASS[land]} ${isWarCell ? "power-cell--war" : ""} ${occupied ? "power-cell--active" : ""} ${pulse ? "war-area-pulse" : ""}`}
                 >
@@ -706,8 +753,6 @@ export function CentralBoard({
                   )}
                   <div className="power-cell-slot">
                     <span className="power-cell-socket" aria-hidden />
-                    {trail.red === n && <MarkerToken variant="red" size={TOKEN_PX} trail title="Червоний (Імперія)" />}
-                    {trail.green === n && <MarkerToken variant="green" size={TOKEN_PX} trail title="Зелений (Племена)" />}
                     {showPreview && previewRed === n && (
                       <MarkerToken variant="red" size={TOKEN_PX} preview title="Прев’ю: червоний" />
                     )}
@@ -715,10 +760,10 @@ export function CentralBoard({
                       <MarkerToken variant="green" size={TOKEN_PX} preview title="Прев’ю: зелений" />
                     )}
                     {state.red_marker === n && (
-                      <MarkerToken variant="red" size={TOKEN_PX} className="marker-3d" title="Червоний (Імперія)" />
+                      <MarkerToken variant="red" size={TOKEN_PX} className="marker-3d" live title="Червоний (Імперія)" />
                     )}
                     {state.green_marker === n && (
-                      <MarkerToken variant="green" size={TOKEN_PX} className="marker-3d" title="Зелений (Племена)" />
+                      <MarkerToken variant="green" size={TOKEN_PX} className="marker-3d" live title="Зелений (Племена)" />
                     )}
                   </div>
                   {/* Номер унизу, як на дошці: жетон стоїть у верхній частині

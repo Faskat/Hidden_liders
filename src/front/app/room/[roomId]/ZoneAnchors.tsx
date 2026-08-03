@@ -29,6 +29,8 @@ export const zoneParty = (playerId: string) => `party:${playerId}`;
 export const zoneHidden = (playerId: string) => `hidden:${playerId}`;
 export const zoneTavern = (slot: number) => `tavern:${slot}`;
 export const zoneLeader = (playerId: string) => `leader:${playerId}`;
+/** Панель гравця цілком — для підсвітки, коли хід переходить до нього. */
+export const zonePanel = (playerId: string) => `panel:${playerId}`;
 export const ZONE_HARBOR = "harbor";
 export const ZONE_WILDERNESS = "wilderness";
 export const ZONE_GRAVEYARD = "graveyard";

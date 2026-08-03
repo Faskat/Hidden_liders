@@ -9,8 +9,8 @@ import { CARD_TOTAL_ROTATION, handCardSize } from "./constants";
 import { FLIGHT_MS, type Flight } from "./FlightLayer";
 import {
   elementOfZone, rectOfCardIn, rectOfZone,
-  zoneHand, zoneHidden, zoneLeader, zoneParty, zoneTavern,
-  ZONE_GRAVEYARD, ZONE_HARBOR, ZONE_WILDERNESS,
+  zoneHand, zoneHidden, zoneLeader, zonePanel, zoneParty, zoneTavern,
+  ZONE_GRAVEYARD, ZONE_HARBOR, ZONE_TRACK, ZONE_WILDERNESS,
   type ContentRect, type ZoneKey,
 } from "./ZoneAnchors";
 
@@ -106,6 +106,8 @@ export function useAnimationDirector(ctx: Ctx) {
    * карти, що летять поруч.
    */
   const lastSeq = useRef(0);
+  /** Хто ходив останнім: підсвічуємо панель лише при зміні гравця, не фази. */
+  const lastActive = useRef<string | null>(null);
   /** Свіжий контекст для відкладених кроків: черга переживає кілька рендерів. */
   const ctxRef = useRef(ctx);
   ctxRef.current = ctx;
@@ -396,6 +398,55 @@ export function useAnimationDirector(ctx: Ctx) {
         const toZone = mapZone(ev.to_zone, ev.to_player_id ?? owner);
         if (!fromZone || !toZone) return [];
         return fly({ fromZone, toZone, cardId: ev.card_id, hideAt: toZone });
+      }
+
+      case "TurnPhaseChanged": {
+        /**
+         * Хід перейшов до іншого гравця — його панель коротко спалахує.
+         *
+         * Тільки при зміні гравця, а не фази: фаза міняється по 4 рази за хід,
+         * і панель блимала б майже безперервно. Фаза й так написана в шапці.
+         */
+        const nextId = ctxRef.current.state.current_player_id;
+        if (!nextId || nextId === lastActive.current) return [];
+        lastActive.current = nextId;
+        elementOfZone(zonePanel(nextId))?.animate(
+          [
+            { boxShadow: "0 0 0 0 rgba(201,162,39,0)" },
+            { boxShadow: "0 0 0 4px rgba(201,162,39,0.45)", offset: 0.35 },
+            { boxShadow: "0 0 0 0 rgba(201,162,39,0)" },
+          ],
+          { duration: 900, easing: "ease-out" }
+        );
+        return [];
+      }
+
+      case "DeckShuffled": {
+        // Пустош перетасували в гавань. Стос коротко хитається — видно, що
+        // колода не просто змінила лічильник, а зібралася заново.
+        elementOfZone(ZONE_HARBOR)?.animate(
+          [
+            { transform: "rotate(0deg)" },
+            { transform: "rotate(-3.5deg) translateY(-3px)", offset: 0.3 },
+            { transform: "rotate(3deg)", offset: 0.65 },
+            { transform: "rotate(0deg)" },
+          ],
+          { duration: 520, easing: "ease-in-out" }
+        );
+        return [];
+      }
+
+      case "GameEndTriggered": {
+        // Спалах уздовж треку перед тим, як з'явиться вікно результатів.
+        elementOfZone(ZONE_TRACK)?.animate(
+          [
+            { filter: "brightness(1)" },
+            { filter: "brightness(1.5)", offset: 0.4 },
+            { filter: "brightness(1)" },
+          ],
+          { duration: 700, easing: "ease-out" }
+        );
+        return [];
       }
 
       default:

@@ -13,7 +13,7 @@ import {
   getHeroLimit, FACTION_STYLE, FACTION_LABEL, hoverAnchor, handCardSize, type HoverHandler,
   POSITION_ROTATION, CONTENT_INNER_ROTATION, CARD_FACE_ROTATION,
 } from "./constants";
-import { useZoneRef, zoneHand, zoneHidden, zoneLeader, zoneParty } from "./ZoneAnchors";
+import { useZoneRef, zoneHand, zoneHidden, zoneLeader, zonePanel, zoneParty } from "./ZoneAnchors";
 import { InFlightHide } from "./useAnimationDirector";
 
 function isHeroRef(
@@ -94,6 +94,7 @@ export function PlayerZone({
   const handRef = useZoneRef(zoneHand(player.player_id));
   const hiddenRef = useZoneRef(zoneHidden(player.player_id));
   const leaderRef = useZoneRef(zoneLeader(player.player_id));
+  const panelRef = useZoneRef(zonePanel(player.player_id));
   const rotation = POSITION_ROTATION[position] ?? "0deg";
   const contentInnerRotation = CONTENT_INNER_ROTATION[position] ?? "0deg";
   const cardFaceRotation = CARD_FACE_ROTATION[position] ?? "0deg";
@@ -453,6 +454,7 @@ export function PlayerZone({
   return (
     <>
       <div
+        ref={panelRef}
         className="rounded-xl border border-[var(--border)] bg-[var(--bg-panel)]/80 p-3 min-w-0 cursor-default"
         style={{
           transform: `rotate(${rotation})`,
