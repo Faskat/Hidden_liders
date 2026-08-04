@@ -333,6 +333,37 @@ export default function RoomPage() {
     }));
   }, [panBounds]);
 
+  /**
+   * Підігнати стіл під вікно, коли вперше сідаєш за нього.
+   *
+   * Стіл на двох — близько 2100px завширшки, на шістьох більше, а зум починався
+   * з одиниці незалежно від вікна. На ноутбучному екрані через це центр дошки —
+   * гавань, звідки летить майже вся роздача, — просто не вміщався, і половина
+   * партії відбувалася за краєм екрана.
+   *
+   * Тільки зменшуємо: розтягувати маленький стіл на весь екран нема сенсу,
+   * карти стали б неприродно великими. І тільки один раз на кімнату — далі
+   * зум належить гравцеві, і підганяти його на кожен ресайз означало б
+   * відбирати керування посеред ходу.
+   */
+  const fittedRef = useRef(false);
+  useEffect(() => {
+    if (fittedRef.current) return;
+    const wrapper = gameTableWrapperRef.current;
+    const content = gameTableContentRef.current;
+    if (!wrapper || !content) return;
+    const vw = wrapper.clientWidth;
+    const vh = wrapper.clientHeight;
+    const cw = content.scrollWidth;
+    const ch = content.scrollHeight;
+    if (!vw || !vh || !cw || !ch) return;
+    fittedRef.current = true;
+    // Округлення саме вниз: `toFixed` округляє вгору й на цілому столі дає
+    // зайві півпікселя, через які він знову не вміщається.
+    const fit = Math.floor(Math.min(1, vw / cw, vh / ch) * 1000) / 1000;
+    if (fit < 1) setZoom(Math.max(ZOOM_MIN, fit));
+  }, [state, ZOOM_MIN]);
+
   useEffect(() => {
     if (typeof window === "undefined" || !roomId) return;
     setToken(localStorage.getItem(STORAGE_TOKEN(roomId)));
