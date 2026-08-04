@@ -51,6 +51,20 @@ function setupStagger(steps: number): number {
   return Math.max(SETUP_STAGGER_MIN_MS, Math.min(SETUP_STAGGER_MS, Math.round(SETUP_TOTAL_MS / steps)));
 }
 
+/**
+ * Події, які анімують дошку на місці, а не польотом карти.
+ *
+ * Вони нічого не ховають, тож у сухому проході їх нема сенсу торкатися —
+ * і не можна, бо вони мають побічні дії.
+ */
+const IN_PLACE_EVENTS = new Set([
+  "LeaderRevealed",
+  "HandsSwapped",
+  "TurnPhaseChanged",
+  "DeckShuffled",
+  "GameEndTriggered",
+]);
+
 /** Події, за якими впізнаємо початкову роздачу. */
 const SETUP_EVENTS = new Set([
   "FirstPlayerChosen",
@@ -172,6 +186,8 @@ type Face = "up" | "down";
 type Ctx = {
   state: GameStateView;
   seats: SeatMap;
+  /** Хто дивиться. Тільки своя рука намальована картами — решта сорочками. */
+  meId?: string | null;
   catalog?: Record<string, CardCatalogEntry>;
 };
 
@@ -188,6 +204,17 @@ export function useAnimationDirector(ctx: Ctx) {
   const timers = useRef<number[]>([]);
   /** Чи є пачка, що грає зараз, сценою роздачі: лише її дозволено пропускати. */
   const playingScene = useRef(false);
+  /**
+   * Сухий прохід: `play` рахує, що ховати, і нічого не рухає.
+   *
+   * Потрібен тому, що ховати цілі покроково — запізно. Стан приїжджає разом
+   * із подіями й малюється одразу, тож карта, чия черга летіти надійде за
+   * півсекунди, весь цей час уже лежить на місці. Найпомітніше це в руці:
+   * карта з'являлася в ній рівно тоді, коли тільки вирушала в дорогу.
+   */
+  const dryRun = useRef(false);
+  /** Скільки сорочок чужої руки вже розібрав сухий прохід, по гравцях. */
+  const blindSeen = useRef(new Map<string, number>());
   /**
    * Найбільший `seq`, який уже пішов в анімацію.
    *
@@ -295,6 +322,17 @@ export function useAnimationDirector(ctx: Ctx) {
     flipTo?: Face;
     hideAt?: ZoneKey;
   }): string[] => {
+    /**
+     * Сухий прохід: жодних вимірювань, жодного польоту — лише ключ цілі.
+     *
+     * Навмисно без перевірки, чи зони взагалі є на екрані: пачка ховає цілі
+     * до першого кроку, а на переході з лобі дошка в цю мить ще монтується.
+     * Зайвий ключ безпечний — його однаково відпустить таймер свого кроку.
+     */
+    if (dryRun.current) {
+      return opts.hideAt && opts.cardId ? [flightKey(opts.hideAt, opts.cardId)] : [];
+    }
+
     const { state, catalog } = ctxRef.current;
     const from = rectFor(opts.fromZone, opts.cardId);
     const to = rectFor(opts.toZone, opts.cardId);
@@ -349,9 +387,46 @@ export function useAnimationDirector(ctx: Ctx) {
     return m ? zoneTavern(Number(m[1])) : null;
   };
 
+  /**
+   * Чи намальована рука цього гравця сорочками.
+   *
+   * Саме «чи це я», а не «чи прийшли id карт»: добір із таверни публічний, і
+   * `card_id` у події є навіть тоді, коли карта їде в чужу руку — а там її
+   * все одно намалюють сорочкою. Порожня власна рука теж не привід вважати
+   * її чужою.
+   */
+  const isBlindHand = useCallback((playerId: string) => playerId !== ctxRef.current.meId, []);
+
+  /**
+   * Ключ сорочки, що приїжджає в чужу руку.
+   *
+   * Своя карта ховається за `card_id`, а в чужій руці id немає в розмітці
+   * взагалі: там рівно `hand_count` однакових сорочок, ключованих позицією.
+   * Тому ховаємо ті, що лежать останніми, — сорочки взаємозамінні, важлива
+   * лише кількість. Лічильник іде з хвоста пачки (див. сухий прохід у
+   * `drain`), тож остання подія забирає останню сорочку, передостання —
+   * передостанню, і знати наперед, скільки їх у пачці, не треба.
+   */
+  const blindHandKey = useCallback((playerId: string): string[] => {
+    // Лише сухий прохід: він єдиний рахує позиції, і лічильник має бути на
+    // пачку, а не подвоюватися на реальному проході.
+    if (!dryRun.current) return [];
+    const p = ctxRef.current.state.players.find((x) => x.player_id === playerId);
+    if (!p) return [];
+    const seen = (blindSeen.current.get(playerId) ?? 0) + 1;
+    blindSeen.current.set(playerId, seen);
+    const idx = (p.hand_count ?? 0) - seen;
+    return idx >= 0 ? [flightKey(zoneHand(playerId), `hidden-${idx}`)] : [];
+  }, []);
+
   /** Один крок сценарію. Повертає ключі, які треба відпустити після польоту. */
   const play = useCallback((ev: GameEvent): string[] => {
     const owner = ev.player_id;
+
+    // Анімації «на місці» в сухому проході пропускаються: ховати їм нічого,
+    // зате вони мають побічні дії — запускають рух і зсувають `lastActive`, —
+    // і виконати їх двічі не можна.
+    if (dryRun.current && IN_PLACE_EVENTS.has(ev.event_type)) return [];
 
     switch (ev.event_type) {
       case "CardPlayed": {
@@ -435,9 +510,14 @@ export function useAnimationDirector(ctx: Ctx) {
         const src = ev.source === "tavern" && typeof ev.tavern_slot === "number"
           ? zoneTavern(ev.tavern_slot)
           : ZONE_HARBOR;
-        // Ціль не ховаємо: карта їде в руку, а рука суперника — сорочки,
-        // серед яких «ту саму» не знайти й ховати нема чого.
-        return fly({ fromZone: src, toZone: zoneHand(owner), cardId: ev.card_id });
+        const blind = isBlindHand(owner);
+        const keys = fly({
+          fromZone: src,
+          toZone: zoneHand(owner),
+          cardId: ev.card_id,
+          hideAt: blind ? undefined : zoneHand(owner),
+        });
+        return blind ? blindHandKey(owner) : keys;
       }
 
       case "TavernRefilled": {
@@ -486,10 +566,13 @@ export function useAnimationDirector(ctx: Ctx) {
       }
 
       case "CardMoved": {
+        const toPlayer = ev.to_player_id ?? owner;
         const fromZone = mapZone(ev.from_zone, ev.from_player_id ?? owner);
-        const toZone = mapZone(ev.to_zone, ev.to_player_id ?? owner);
+        const toZone = mapZone(ev.to_zone, toPlayer);
         if (!fromZone || !toZone) return [];
-        return fly({ fromZone, toZone, cardId: ev.card_id, hideAt: toZone });
+        const blind = ev.to_zone === "hand" && !!toPlayer && isBlindHand(toPlayer);
+        const keys = fly({ fromZone, toZone, cardId: ev.card_id, hideAt: blind ? undefined : toZone });
+        return blind && toPlayer ? blindHandKey(toPlayer) : keys;
       }
 
       case "TavernFilled": {
@@ -573,7 +656,7 @@ export function useAnimationDirector(ctx: Ctx) {
       default:
         return [];
     }
-  }, [fly, hiddenZoneOf]);
+  }, [fly, hiddenZoneOf, blindHandKey, isBlindHand]);
 
   const drain = useCallback(() => {
     if (running.current) return;
@@ -582,10 +665,46 @@ export function useAnimationDirector(ctx: Ctx) {
     running.current = true;
     playingScene.current = batch.scene === true;
 
+    const hides: string[][] = batch.evs.map(() => []);
+
+    /**
+     * Сховати цілі ВСІЄЇ пачки, ще не програвши жодного кроку.
+     *
+     * Інакше карта, чий крок стоїть у пачці п'ятим, півсекунди лежала б на
+     * своєму місці ще до того, як по неї вирушив політ, — а виглядає це так,
+     * ніби карта з'явилася в руці й лише потім до неї полетіла копія.
+     *
+     * Прохід іде з хвоста: ховати можна в будь-якому порядку, а сорочки
+     * чужої руки нумеруються з кінця (див. `blindHandKey`), і з хвоста кожна
+     * знаходить свою позицію без попереднього підрахунку пачки.
+     */
+    const hide = () => {
+      dryRun.current = true;
+      blindSeen.current = new Map();
+      const fresh: string[] = [];
+      for (let i = batch.evs.length - 1; i >= 0; i--) {
+        play(batch.evs[i]).forEach((k) => {
+          if (hides[i].indexOf(k) < 0) {
+            hides[i].push(k);
+            fresh.push(k);
+          }
+        });
+      }
+      dryRun.current = false;
+
+      if (!fresh.length) return;
+      setInFlight((prev) => {
+        const next = new Set(prev);
+        fresh.forEach((k) => next.add(k));
+        return next;
+      });
+    };
+
     const schedule = () => {
       batch.evs.forEach((ev, i) => {
         const t = window.setTimeout(() => {
-          const keys = play(ev);
+          play(ev);
+          const keys = hides[i];
           if (keys.length) {
             window.setTimeout(() => release(keys), FLIGHT_MS);
           }
@@ -612,7 +731,20 @@ export function useAnimationDirector(ctx: Ctx) {
      * Саме таймер, а не `requestAnimationFrame`: у прихованій вкладці кадри
      * не йдуть узагалі, і пачка зависла б назавжди — разом із чергою, бо
      * `running` лишився б піднятим.
+     *
+     * Ховання ж іде двічі, і жоден із двох проходів не зайвий. Перший не
+     * чекає нічого: він нічого не міряє в DOM, а кожен зайвий кадр — це кадр,
+     * у якому карта вже лежить на місці. Але позицію сорочки в чужій руці він
+     * порахувати ще не може — `push` викликається поруч із `setState`, і
+     * свіжий стан у `ctxRef` з'являється аж після коміту. Другий прохід
+     * добирає те, що проґавив перший; ключі об'єднуються, тож повторний
+     * просто не додасть нічого нового.
+     *
+     * Порядок при однаковій затримці — це порядок реєстрації, тому другий
+     * прохід гарантовано встигає до першого кроку.
      */
+    timers.current.push(window.setTimeout(hide, 0));
+    timers.current.push(window.setTimeout(hide, LEAD_IN_MS));
     timers.current.push(window.setTimeout(schedule, LEAD_IN_MS));
   }, [play, release]);
 

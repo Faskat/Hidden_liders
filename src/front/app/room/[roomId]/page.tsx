@@ -393,6 +393,9 @@ export default function RoomPage() {
       .finally(() => setLoading(false));
   }, [roomId, isCreator, token, joinName]);
 
+  /** Хто дивиться: потрібен і розсадці, і режисеру анімацій. */
+  const meId = typeof window !== "undefined" ? localStorage.getItem(STORAGE_PLAYER(roomId)) : null;
+
   /**
    * Розсадка гравців: player_id -> місце за столом.
    *
@@ -403,18 +406,18 @@ export default function RoomPage() {
   const seats = useMemo<SeatMap>(() => {
     if (!state || "error" in state) return {};
     const s = state as GameStateView;
-    const myId = typeof window !== "undefined" ? localStorage.getItem(STORAGE_PLAYER(roomId)) : null;
-    const meIdx = s.players.findIndex((p) => p.player_id === myId);
+    const meIdx = s.players.findIndex((p) => p.player_id === meId);
     const ordered = meIdx < 0 ? s.players : [...s.players.slice(meIdx), ...s.players.slice(0, meIdx)];
     const layout = SEAT_LAYOUT[ordered.length] ?? [];
     const map: SeatMap = {};
     ordered.forEach((p, i) => { map[p.player_id] = layout[i] ?? "bottom"; });
     return map;
-  }, [state, roomId]);
+  }, [state, meId]);
 
   const director = useAnimationDirector({
     state: (state && !("error" in state) ? state : EMPTY_STATE) as GameStateView,
     seats,
+    meId,
     catalog: state && !("error" in state) ? (state as GameStateView).cards : undefined,
   });
   const pushEvents = director.push;

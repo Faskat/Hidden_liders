@@ -91,7 +91,8 @@ export function PlayerZone({
   // Зони цього гравця в реєстрі якорів: звідки й куди летять його карти.
   const partyZone = zoneParty(player.player_id);
   const partyRef = useZoneRef(partyZone);
-  const handRef = useZoneRef(zoneHand(player.player_id));
+  const handZone = zoneHand(player.player_id);
+  const handRef = useZoneRef(handZone);
   const hiddenRef = useZoneRef(zoneHidden(player.player_id));
   const leaderRef = useZoneRef(zoneLeader(player.player_id));
   const panelRef = useZoneRef(zonePanel(player.player_id));
@@ -393,6 +394,10 @@ export function PlayerZone({
                 return {
                   key: cid,
                   node: (
+                  // Карта з'являється в руці лише тоді, коли політ доніс її
+                  // сюди: стан застосовується раніше за анімацію, і без цього
+                  // вона лежала б у віялі ще до того, як по неї вилетіла копія.
+                  <InFlightHide zone={handZone} cardId={cid}>
                   <button
                     type="button"
                     disabled={discardMode ? false : !canPlayToParty}
@@ -422,6 +427,7 @@ export function PlayerZone({
                   >
                     <GameCard cardId={cid} variant="open" size={handSize} catalog={catalog} />
                   </button>
+                  </InFlightHide>
                   ),
                 };
               })}
@@ -438,7 +444,11 @@ export function PlayerZone({
             // «третя сорочка» — це позиція, а не конкретна карта.
             items={Array.from({ length: handCount }).map((_, i) => ({
               key: `hidden-${i}`,
-              node: <GameCard cardId={`hidden-${i}`} variant="hidden" size="tiny" />,
+              node: (
+                <InFlightHide zone={handZone} cardId={`hidden-${i}`}>
+                  <GameCard cardId={`hidden-${i}`} variant="hidden" size="tiny" />
+                </InFlightHide>
+              ),
             }))}
           />
         ) : (
