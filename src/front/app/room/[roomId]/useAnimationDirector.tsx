@@ -87,10 +87,27 @@ const SETUP_EVENTS = new Set([
  * Решта подій розкладу пропускається: `LeaderDealt` і `DeckShuffled` нічого не
  * рухають на екрані, а `StartingHandSet` лише повторює те, що вже показали
  * п'ять `HeroDrawn`.
+ *
+ * Дві з п'яти карт до руки не доїжджають ніколи: бекенд роздає п'ять і одразу
+ * ж кладе одну сорочкою в загін, а другу скидає в пустош (`setup.py:130-131`).
+ * У руці їх не бачив ніхто — стан приходить уже поділеним. Тому їхні добори
+ * викидаються, а самі вони летять із гавані напряму туди, де й опиняться:
+ * інакше на екрані карта вилітала б із руки, якої в неї не було.
  */
 function dealScene(events: GameEvent[]): GameEvent[] {
   const table: GameEvent[] = [];
   const byPlayer = new Map<string, GameEvent[]>();
+  /** Карти, що осідають повз руку: їхній добір показувати не треба. */
+  const bypassed = new Set<string>();
+  /** Те саме для чужих гравців, де id немає: скільки доборів прибрати з хвоста. */
+  const bypassedBlind = new Map<string, number>();
+
+  for (const e of events) {
+    if (e.event_type !== "HeroPutFaceDown" && e.event_type !== "HeroDiscardedToWilderness") continue;
+    if (!e.player_id) continue;
+    if (e.card_id) bypassed.add(e.card_id);
+    else bypassedBlind.set(e.player_id, (bypassedBlind.get(e.player_id) ?? 0) + 1);
+  }
 
   for (const e of events) {
     if (e.event_type === "TavernFilled") {
@@ -106,15 +123,24 @@ function dealScene(events: GameEvent[]): GameEvent[] {
     } else if (e.event_type === "GraveyardInitialized") {
       table.push(e);
     } else if (e.event_type === "HeroDrawn" && e.player_id) {
+      if (e.card_id && bypassed.has(e.card_id)) continue;
       const list = byPlayer.get(e.player_id) ?? [];
       list.push(e);
       byPlayer.set(e.player_id, list);
     } else if (e.event_type === "HeroPutFaceDown" || e.event_type === "HeroDiscardedToWilderness") {
       // Ці два йдуть у кінець: спершу всі отримують карти, потім кожен
-      // визначається з прихованим героєм і скидом.
-      table.push({ ...e, __tail: true } as GameEvent);
+      // визначається з прихованим героєм і скидом. І летять вони з гавані,
+      // а не з руки, — див. шапку.
+      table.push({ ...e, __tail: true, __fromHarbor: true } as GameEvent);
     }
   }
+
+  // Чужі добори безликі, і викинути «саме ті» не вийде. Але сорочки
+  // взаємозамінні: досить прибрати стільки ж із хвоста.
+  bypassedBlind.forEach((n, pid) => {
+    const list = byPlayer.get(pid);
+    if (list) byPlayer.set(pid, list.slice(0, Math.max(0, list.length - n)));
+  });
 
   // Array.from, а не spread: ціль компіляції нижча за es2015, і ітератор Map
   // напряму не розкладається.
@@ -449,7 +475,7 @@ export function useAnimationDirector(ctx: Ctx) {
         // Здібність «Place»: карта з руки лягає в приховані героїв.
         if (!owner) return [];
         return fly({
-          fromZone: zoneHand(owner),
+          fromZone: "__fromHarbor" in ev ? ZONE_HARBOR : zoneHand(owner),
           toZone: hiddenZoneOf(owner),
           cardId: ev.card_id,
           face: "up",
@@ -540,11 +566,15 @@ export function useAnimationDirector(ctx: Ctx) {
         const ids = ev.card_ids ?? (ev.card_id ? [ev.card_id] : []);
         // Скид без id (чужий гравець) усе одно показуємо — стільки сорочок,
         // скільки карт пішло: рух руки суперника видно, вміст — ні.
-        const items = ids.length ? ids : Array.from({ length: ev.count ?? 0 });
+        // `HeroDiscardedToWilderness` — це завжди рівно одна карта, і лічильника
+        // в ній немає; без цього скид суперника в роздачі не показувався б.
+        const blindCount = ev.event_type === "HeroDiscardedToWilderness" ? 1 : ev.count ?? 0;
+        const items = ids.length ? ids : Array.from({ length: blindCount });
+        const from = "__fromHarbor" in ev ? ZONE_HARBOR : zoneHand(owner);
         const keys: string[] = [];
         items.forEach((cid) => {
           keys.push(...fly({
-            fromZone: zoneHand(owner),
+            fromZone: from,
             toZone: ZONE_WILDERNESS,
             cardId: typeof cid === "string" ? cid : undefined,
             // Скид іде в пустош сорочкою: у проекції пустош — самий лічильник,
