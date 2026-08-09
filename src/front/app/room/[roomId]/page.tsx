@@ -15,7 +15,7 @@ import {
   backToLobby,
   ApiError,
 } from "@/lib/api";
-import type { GameStateView, CommandResponse } from "@/lib/types";
+import type { GameStateView, CommandResponse, GameEvent } from "@/lib/types";
 import { useToast } from "@/app/components/Toast";
 import RulesModal from "@/components/RulesModal";
 import { CardsCatalogProvider } from "@/app/contexts/CardsCatalogContext";
@@ -421,6 +421,29 @@ export default function RoomPage() {
     catalog: state && !("error" in state) ? (state as GameStateView).cards : undefined,
   });
   const pushEvents = director.push;
+
+  /**
+   * Тестовий шов: подати події режисеру напряму, минаючи сервер.
+   *
+   * Половина анімацій висить на здібностях карт — вбивство героя, переворот,
+   * обмін руками, перетасовка гавані. Яка карта кому дістанеться, вирішує
+   * `random` на бекенді, і дочекатися потрібної здібності в тесті означало б
+   * або грати партію наосліп до посиніння, або мати ручку для підміни сіда,
+   * якої немає. Шов дає рівно те, що потрібно перевірити: подію на вході
+   * режисера. `seq` має зростати — режисер відкидає те, що вже програв.
+   *
+   * Живі сценарії він не підміняє: розіграш, добір, скид і роздача
+   * перевіряються справжньою грою через API.
+   */
+  useEffect(() => {
+    if (process.env.NODE_ENV === "production") return;
+    const w = window as unknown as Record<string, unknown>;
+    w.__hlFeed = (evs: GameEvent[]) => pushEvents(evs);
+    // Стан, який РЕАЛЬНО намальовано. Сервер уже може знати про наступний хід,
+    // а стіл — ще ні: між ними лежить опитування раз на кілька секунд. Тест,
+    // що чекає на анімацію, мусить рівнятися саме на цей бік.
+    w.__hlView = () => state;
+  }, [pushEvents, state]);
 
   /**
    * Прийняти відповідь сервера: новий стан, події й курсор — одним рухом.

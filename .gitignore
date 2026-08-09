@@ -9,6 +9,7 @@ __pycache__/
 .venv/
 venv/
 env/
+.pytest_cache/
 
 # Backend local data
 src/back/data/*.db

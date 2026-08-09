@@ -117,3 +117,23 @@ export function rectOfCardIn(key: ZoneKey, cardId: string): ContentRect | null {
 export function useZoneRef(key: ZoneKey) {
   return useCallback((el: HTMLElement | null) => registerZone(key, el), [key]);
 }
+
+/**
+ * Тестовий шов: реєстр зон назовні. Тільки в розробницькій збірці.
+ *
+ * E2E-перевірки анімацій мусять знати, куди саме мала прилетіти карта. Шукати
+ * зону селектором по розмітці означало б переписувати тести після кожної
+ * правки верстки — а точна відповідь уже є ось тут, у реєстрі. Тому шов
+ * віддає його як є, і жодної окремої таблиці відповідностей у тестах не
+ * з'являється.
+ *
+ * У продакшн-збірці `process.env.NODE_ENV` підставляється рядком, умова стає
+ * завідомо хибною, і весь блок вирізається складачем.
+ */
+if (typeof window !== "undefined" && process.env.NODE_ENV !== "production") {
+  (window as unknown as Record<string, unknown>).__hlDebug = {
+    zones,
+    layer: () => layer,
+    rect: rectOfZone,
+  };
+}

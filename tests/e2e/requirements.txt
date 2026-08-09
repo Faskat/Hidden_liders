@@ -1,0 +1,5 @@
+# Залежності E2E-перевірок анімацій. Драйвер Chrome тягне сам Selenium
+# (Selenium Manager), окремо ставити chromedriver не треба — потрібен лише
+# встановлений Chrome.
+pytest>=8.0
+selenium>=4.20
